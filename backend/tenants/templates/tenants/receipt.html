@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 18mm; }
+  body { font-family: "Segoe UI", "DejaVu Sans", Arial, sans-serif; color: #1e1b3a; font-size: 11pt; }
+  .brand { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #6d5efc; padding-bottom: 12px; }
+  .brand h1 { margin: 0; font-size: 20pt; color: #4f3fe0; }
+  .brand small { color: #6b6890; }
+  .tag { background: #ecebff; color: #4f3fe0; padding: 4px 10px; border-radius: 12px; font-size: 9pt; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; margin-top: 22px; }
+  th { text-align: left; font-size: 9pt; text-transform: uppercase; letter-spacing: .06em; color: #6b6890; padding: 8px 10px; border-bottom: 1px solid #dcd9f5; }
+  td { padding: 12px 10px; border-bottom: 1px solid #efedfb; }
+  .total td { font-weight: 700; font-size: 13pt; border-bottom: none; }
+  .meta { margin-top: 22px; display: flex; gap: 40px; }
+  .meta div { flex: 1; }
+  .meta b { display: block; font-size: 9pt; text-transform: uppercase; letter-spacing: .06em; color: #6b6890; margin-bottom: 4px; }
+  .foot { margin-top: 40px; color: #6b6890; font-size: 9pt; }
+</style>
+</head>
+<body>
+  <div class="brand">
+    <div><h1>Tech Cognixium</h1><small>GST Invoicing &amp; Billing &middot; techcognixium.com</small></div>
+    <div style="text-align:right"><span class="tag">SUBSCRIPTION RECEIPT{% if payment.is_demo %} &middot; DEMO{% endif %}</span><br>
+      <small>{{ payment.receipt_number }}</small></div>
+  </div>
+  <div class="meta">
+    <div><b>Billed to</b>{{ business.name }}<br>{% if profile and profile.gstin %}GSTIN {{ profile.gstin }}<br>{% endif %}{{ profile.email|default:"" }}</div>
+    <div><b>Paid on</b>{{ payment.paid_at|date:"d M Y" }}</div>
+    <div><b>Payment ref</b>{{ payment.razorpay_payment_id }}</div>
+  </div>
+  <table>
+    <tr><th>Description</th><th style="text-align:right">Amount</th></tr>
+    <tr><td>GST Billing SaaS &mdash; {{ plan.name }} plan (monthly){% if payment.period_end %}<br><small>Valid until {{ payment.period_end|date:"d M Y" }}</small>{% endif %}</td>
+        <td style="text-align:right">&#8377;{{ payment.amount }}</td></tr>
+    <tr class="total"><td>Total paid</td><td style="text-align:right">&#8377;{{ payment.amount }}</td></tr>
+  </table>
+  <p class="foot">This is a payment receipt for your Tech Cognixium subscription.
+  {% if payment.is_demo %}It was generated in demo mode &mdash; no real payment was taken.{% endif %}</p>
+</body>
+</html>

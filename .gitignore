@@ -1,0 +1,14 @@
+.env
+*.pyc
+__pycache__/
+.venv/
+node_modules/
+frontend/dist/
+backend/staticfiles/
+backend/media/
+backend/scripts/_sample_invoice.pdf
+*.log
+.vite/
+
+# Product documents stay local (not pushed)
+*.docx

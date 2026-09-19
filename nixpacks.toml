@@ -1,0 +1,13 @@
+# Railway build/run recipe (starting point - not yet exercised on Railway).
+# WeasyPrint needs Pango + fonts at runtime; Node builds the React app that Django then serves.
+[phases.setup]
+nixPkgs = ["python312", "nodejs_20", "pango", "harfbuzz", "fontconfig", "dejavu_fonts", "gdk-pixbuf", "glib"]
+
+[phases.install]
+cmds = ["python -m venv /opt/venv && . /opt/venv/bin/activate && pip install -r backend/requirements.txt", "cd frontend && npm ci"]
+
+[phases.build]
+cmds = ["cd frontend && npm run build", ". /opt/venv/bin/activate && cd backend && python manage.py collectstatic --noinput"]
+
+[start]
+cmd = ". /opt/venv/bin/activate && cd backend && python manage.py migrate_schemas && python manage.py bootstrap_public && gunicorn config.wsgi --bind 0.0.0.0:$PORT --workers 3 --timeout 60"
