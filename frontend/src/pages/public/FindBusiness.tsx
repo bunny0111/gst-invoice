@@ -5,9 +5,15 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Field, TextInput } from '@/components/ui/Form'
 import { ApiError, get } from '@/lib/api'
+import { useSEO } from '@/lib/seo'
 
 /** Each business lives on its own subdomain, so "Log in" on the main site asks WHICH business first. */
 export default function FindBusiness() {
+  useSEO({
+    title: 'Log in',
+    description: 'Find your GST Billing workspace and log in to your business account.',
+    path: '/login',
+  })
   const [q, setQ] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)

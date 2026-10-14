@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Field, TextInput } from '@/components/ui/Form'
 import { ApiError, get, post } from '@/lib/api'
 import { useDebounce, useTenantInfo } from '@/lib/hooks'
+import { useSEO } from '@/lib/seo'
 
 interface Registered { business: { name: string; slug: string }; subdomain_url: string; login_url: string; email: string }
 const STEPS = ['Reserving your workspace address', 'Creating your private database', 'Setting up your account']
@@ -24,6 +25,11 @@ function strength(pw: string) {
 }
 
 export default function Register() {
+  useSEO({
+    title: 'Create your free account',
+    description: 'Register your business for free in seconds — get your own private, isolated GST billing workspace. 10 free invoices every month, no credit card required.',
+    path: '/register',
+  })
   const tenant = useTenantInfo().data
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')

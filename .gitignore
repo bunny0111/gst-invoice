@@ -9,6 +9,7 @@ backend/media/
 backend/scripts/_sample_invoice.pdf
 *.log
 .vite/
+*.tsbuildinfo
 
 # Product documents stay local (not pushed)
 *.docx

@@ -50,6 +50,38 @@ Measured on the dev machine: dashboard with 1,013 invoices **143 ms** (target < 
 `https://<public-domain>/api/public/razorpay/webhook/` and set `RAZORPAY_WEBHOOK_SECRET`. Demo mode can never activate when `DEBUG=False`.
 The live Razorpay path (order creation, signature check, webhook) is implemented but has **not** been run against Razorpay's servers yet.
 
+## SEO
+
+The product itself (invoices, dashboard, etc.) sits behind login on private tenant subdomains and is
+deliberately **never indexed** — only the public marketing site (landing + register) is meant to rank.
+
+- **Per-page title/description/OG/Twitter/canonical** on the marketing pages (`src/lib/seo.ts`,
+  used by `Landing.tsx`, `Register.tsx`, `FindBusiness.tsx`), plus a generated `public/og-image.png`
+  for link previews.
+- **`robots.txt` / `sitemap.xml`** are served per-host from Django (`common/views.py`): the public
+  domain allows crawling and lists `/` and `/register`; **every tenant subdomain returns
+  `Disallow: /`** and an empty sitemap, unconditionally.
+- **`noindex`** is set on every tenant-domain page as a JS-level backstop (`useNoIndex()` in
+  `App.tsx`'s `TenantRoutes`) — covers login, password reset and the whole logged-in app in one call.
+- **Static prerendering** (`frontend/scripts/prerender.py`): this is a plain client-rendered SPA
+  (Vite, no SSR), so crawlers that don't execute JavaScript (Bing, most link-preview bots) would
+  otherwise see an empty shell. The script loads `/` and `/register` in a real browser against the
+  running Django server, waits for them to settle (including the live `/api/plans/` fetch), and
+  saves the rendered DOM — real text plus the correct per-page `<title>`/meta/OG tags — as static
+  snapshots. `spa_index` (`common/views.py`) serves these in place of the generic shell, **only on
+  the public domain**; a real visitor still gets the exact same bundle and the page is fully
+  interactive once it loads. Re-run after every content change to the marketing pages:
+  ```powershell
+  cd frontend
+  npm run build
+  # with Django already running on :8000:
+  ..\backend\.venv\Scripts\python scripts\prerender.py
+  ```
+- **Before going live:** the generated `og-image.png`/titles use placeholder copy — review them,
+  and double-check `robots.txt`'s `Sitemap:` line and the OG `url`/`image` values resolve correctly
+  against the real `techcognixium.com` domain (they're built from the request's own host, so this
+  should already be correct once DNS points there — just verify once).
+
 ## PRD coverage (Phase 1)
 
 All of: US-01 registration/tenancy · US-02 profile · US-03 customers · US-04 catalogue · US-05 invoices · US-06 PDF · US-07 payments · US-08 dashboard · §6 plan limits · Razorpay subscriptions · §7 non-functional requirements. Plus login/logout and email-OTP password reset from the original roadmap doc, and subscription receipts.

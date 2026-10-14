@@ -12,6 +12,7 @@ import { get } from '@/lib/api'
 import { inr, inrPlain, trimZero } from '@/lib/format'
 import { calcLine, detectSupply } from '@/lib/gst'
 import { useMeta } from '@/lib/hooks'
+import { useSEO } from '@/lib/seo'
 import type { ComparisonRow, Plan } from '@/lib/types'
 
 const fade = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }
@@ -474,6 +475,11 @@ function FinalCta() {
 }
 
 export default function Landing() {
+  useSEO({
+    title: 'GST Billing by Tech Cognixium',
+    description: 'Create GST-compliant invoices in under 2 minutes. Automatic CGST, SGST & IGST, PDF invoices, payment tracking, and a dashboard built for Indian shopkeepers and freelancers. Free to start.',
+    path: '/',
+  })
   return (
     <>
       <Hero />

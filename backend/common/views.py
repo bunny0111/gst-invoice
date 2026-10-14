@@ -63,6 +63,30 @@ def meta(request):
     })
 
 
+def robots_txt(request):
+    """Only the public marketing domain may be crawled. Every tenant subdomain is a private
+    workspace and is blocked outright - the strongest layer, ahead of the per-page <meta
+    name="robots"> set in the React app (src/lib/seo.ts), which a non-JS crawler never sees."""
+    if is_public(request):
+        origin = f"{'https' if request.is_secure() else 'http'}://{request.get_host()}"
+        body = f"User-agent: *\nAllow: /\n\nSitemap: {origin}/sitemap.xml\n"
+    else:
+        body = "User-agent: *\nDisallow: /\n"
+    return HttpResponse(body, content_type="text/plain")
+
+
+def sitemap_xml(request):
+    """Hand-written sitemap for the handful of public marketing pages. Served empty (no <url>
+    entries) on tenant subdomains, which carry nothing worth indexing."""
+    urls: list[str] = []
+    if is_public(request):
+        origin = f"{'https' if request.is_secure() else 'http'}://{request.get_host()}"
+        urls = [f"{origin}/", f"{origin}/register"]
+    entries = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
+    xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{entries}</urlset>'
+    return HttpResponse(xml, content_type="application/xml")
+
+
 def serve_media(request, path: str):
     """Serve uploaded logos from the CURRENT tenant's own media folder (tenant isolated)."""
     if not path.startswith("business_logos/") or Path(path).suffix.lower() not in {".png", ".jpg", ".jpeg"}:
@@ -79,8 +103,20 @@ def serve_media(request, path: str):
 
 
 def spa_index(request, *args, **kwargs):
-    """Serves the built React app for every non-API route (client-side routing)."""
-    index = Path(settings.FRONTEND_DIST) / "index.html"
+    """Serves the built React app for every non-API route (client-side routing).
+
+    A handful of public marketing routes get a PRERENDERED snapshot instead (see
+    scripts/prerender.py): real text + the already-correct <title>/meta/OG tags in the raw
+    HTML, for crawlers that don't execute JavaScript. The snapshot still loads the same bundled
+    script, so the browser hydrates it into the normal interactive SPA.
+    """
+    dist = Path(settings.FRONTEND_DIST)
+    if is_public(request):
+        snapshot = dist / request.path.strip("/") / "index.html"  # "" -> dist/index.html (root)
+        if snapshot.is_file():
+            return HttpResponse(snapshot.read_text(encoding="utf-8"), content_type="text/html")
+
+    index = dist / "index.html"
     if index.is_file():
         return HttpResponse(index.read_text(encoding="utf-8"), content_type="text/html")
     return HttpResponse(

@@ -22,6 +22,7 @@ import Landing from './pages/public/Landing'
 import Register from './pages/public/Register'
 import { ensureCsrf } from './lib/api'
 import { useMe, useTenantInfo } from './lib/hooks'
+import { useNoIndex } from './lib/seo'
 import { useTheme } from './lib/theme'
 
 export default function App() {
@@ -66,6 +67,9 @@ function TenantRoutes() {
   const qc = useQueryClient()
   const me = useMe()
   const location = useLocation()
+  // Every page on a tenant subdomain is a private workspace - never indexed (backstopped by
+  // the host-level robots.txt in common/views.py, which blocks tenant subdomains outright).
+  useNoIndex(me.data?.business_name)
 
   useEffect(() => {
     const out = () => qc.setQueryData(['me'], null)
