@@ -85,7 +85,7 @@ export default function Invoices() {
               </tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} onClick={() => navigate(`/invoices/${r.id}`)} className="group cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-surface-2">
+                  <tr key={r.id} onClick={() => navigate(`/invoices/${r.id}`)} className="group cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-surface-2 hover:shadow-[inset_3px_0_0_var(--brand)]">
                     <td className="num px-5 py-4 font-bold text-ink">{r.invoice_number ?? <span className="font-semibold italic text-muted">Draft #{r.id}</span>}</td>
                     <td className="px-3 font-medium text-ink-2">{r.customer_name}</td>
                     <td className="num px-3 text-muted">{fmtDate(r.invoice_date)}</td>

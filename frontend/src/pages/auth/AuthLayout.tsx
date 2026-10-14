@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <aside className="relative hidden overflow-hidden bg-[linear-gradient(160deg,#2a1d78_0%,#4230c9_55%,#7a3fe0_100%)] p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="animate-blob absolute -right-24 top-1/4 size-96 rounded-full bg-[#ff8a5c]/30 blur-3xl" />
         <div className="animate-blob absolute -left-24 bottom-0 size-80 rounded-full bg-[#22c98a]/25 blur-3xl [animation-delay:-6s]" />
-        <div className="bg-grid-pattern absolute inset-0 opacity-30" />
+        <div className="bg-grid-pattern-invert absolute inset-0" />
         <div className="relative"><Logo light /></div>
         <div className="relative">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-white/60">Your workspace</p>

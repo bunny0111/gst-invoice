@@ -76,6 +76,8 @@ export default function Dashboard() {
       <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
         <motion.section initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#3c27a8_0%,#5b45f0_55%,#8b4bf0_100%)] p-7 text-white shadow-pop sm:p-9">
           <div className="animate-blob absolute -right-16 -top-20 size-72 rounded-full bg-[#ff8a5c]/30 blur-3xl" />
+          <div className="bg-grid-pattern-invert pointer-events-none absolute inset-0" />
+          <ReceiptIndianRupee className="pointer-events-none absolute -bottom-8 -right-6 size-44 text-white/[0.07]" strokeWidth={1.2} />
           <div className="relative">
             <p className="text-sm font-semibold text-white/75">Revenue · {data.month_label}</p>
             <p className="mt-3 font-display text-[56px] font-extrabold leading-none tracking-tight sm:text-[64px]">{inrWholeRupees(animated)}</p>

@@ -78,7 +78,7 @@ export default function Customers() {
               </tr></thead>
               <tbody>
                 {rows.map((c) => (
-                  <tr key={c.id} className={clsx('group border-b border-line last:border-0 transition-colors hover:bg-surface-2', !c.is_active && 'opacity-60')}>
+                  <tr key={c.id} className={clsx('group border-b border-line last:border-0 transition-colors hover:bg-surface-2 hover:shadow-[inset_3px_0_0_var(--brand)]', !c.is_active && 'opacity-60')}>
                     <td className="px-5 py-3.5"><div className="flex items-center gap-3"><Avatar name={c.name} /><div className="min-w-0"><p className="truncate font-semibold text-ink">{c.name}</p><p className="truncate text-xs text-muted">{c.email || c.city || '—'}</p></div></div></td>
                     <td className="px-3">{c.gstin ? <span className="num inline-flex items-center gap-1.5 rounded-md bg-info-soft px-2 py-1 text-xs font-semibold text-info-ink"><Building2 className="size-3" />{c.gstin}</span> : <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--neutral-soft)] px-2 py-1 text-xs font-semibold text-[var(--neutral-ink)]"><UserRound className="size-3" />B2C</span>}</td>
                     <td className="px-3 text-ink-2">{c.state_name}</td>

@@ -79,7 +79,7 @@ export default function Products() {
               </tr></thead>
               <tbody>
                 {rows.map((p) => (
-                  <tr key={p.id} className={clsx('group border-b border-line last:border-0 transition-colors hover:bg-surface-2', !p.is_active && 'opacity-60')}>
+                  <tr key={p.id} className={clsx('group border-b border-line last:border-0 transition-colors hover:bg-surface-2 hover:shadow-[inset_3px_0_0_var(--brand)]', !p.is_active && 'opacity-60')}>
                     <td className="px-5 py-3.5"><div className="flex items-center gap-3">
                       <span className={clsx('grid size-9 shrink-0 place-items-center rounded-xl', p.item_type === 'goods' ? 'bg-brand-soft text-brand' : 'bg-info-soft text-info-ink')}>{p.item_type === 'goods' ? <Package className="size-[18px]" /> : <Wrench className="size-[18px]" />}</span>
                       <div className="min-w-0"><p className="truncate font-semibold text-ink">{p.name}</p><p className="truncate text-xs text-muted">{p.description || (p.item_type === 'goods' ? 'Goods' : 'Service')}</p></div></div></td>

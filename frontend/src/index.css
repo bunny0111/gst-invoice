@@ -26,6 +26,12 @@
   --crit: #d03b3b;  --crit-soft: #fdeaea;  --crit-ink: #a92424;
   --info: #2a78d6;  --info-soft: #e6f0fc;  --info-ink: #1c5cab;
   --neutral-soft: #efeef7; --neutral-ink: #55527a;
+  /* tone gradients - the StatTile/feature-icon treatment, one pair per status colour */
+  --grad-brand: linear-gradient(135deg, #8b7dff 0%, #5b45f0 100%);
+  --grad-good: linear-gradient(135deg, #3ddc84 0%, #0ca33f 100%);
+  --grad-warn: linear-gradient(135deg, #ffcf5c 0%, #ef9b0f 100%);
+  --grad-crit: linear-gradient(135deg, #ff7a7a 0%, #d03b3b 100%);
+  --grad-info: linear-gradient(135deg, #5ca7f5 0%, #2a6fd6 100%);
   color-scheme: light;
 }
 .dark {
@@ -99,6 +105,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 1rem;
   box-shadow: var(--shadow-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 .gradient-brand { background-image: linear-gradient(135deg, #7a68ff 0%, #5b45f0 45%, #4230c9 100%); }
 .gradient-text {
@@ -112,6 +119,22 @@ body {
   background-size: 44px 44px;
   mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
 }
+/* A faint grid for ALWAYS-DARK panels (sidebar, auth side panels) - white-based so it reads
+   regardless of the light/dark theme toggle, unlike .bg-grid-pattern which tracks --brand. */
+.bg-grid-pattern-invert {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at 30% 0%, #000 35%, transparent 80%);
+}
+/* StatTile / feature-icon badges: a saturated gradient fill + a soft colour-matched glow
+   underneath, instead of a flat tint - the same treatment the landing page's feature cards use. */
+.icon-badge { background-image: var(--grad-brand); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--brand) 65%, transparent); }
+.icon-badge-good { background-image: var(--grad-good); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--good) 65%, transparent); }
+.icon-badge-warn { background-image: var(--grad-warn); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--warn) 65%, transparent); }
+.icon-badge-crit { background-image: var(--grad-crit); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--crit) 65%, transparent); }
+.icon-badge-info { background-image: var(--grad-info); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--info) 65%, transparent); }
 .skeleton {
   background: linear-gradient(90deg, var(--line) 25%, var(--surface-2) 37%, var(--line) 63%);
   background-size: 200% 100%;

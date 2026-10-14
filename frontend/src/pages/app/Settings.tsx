@@ -93,15 +93,21 @@ export default function Settings() {
       <PageHeader title="Business profile" subtitle="This information appears on every invoice you create." />
       <div className="grid items-start gap-6 lg:grid-cols-[280px_1fr]">
         <aside className="space-y-4 lg:sticky lg:top-24">
-          <div className="card p-5">
-            <div className="flex items-center gap-4">
+          <div className="card relative overflow-hidden p-5">
+            <div className={clsx('pointer-events-none absolute -right-10 -top-12 size-36 rounded-full blur-2xl', missing.length ? 'bg-brand/15' : 'bg-good/15')} />
+            <div className="relative flex items-center gap-4">
               <div className="relative size-16">
                 <svg viewBox="0 0 36 36" className="size-16 -rotate-90"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--line)" strokeWidth="3.5" /><motion.circle cx="18" cy="18" r="15.5" fill="none" stroke={missing.length ? 'var(--brand)' : 'var(--good)'} strokeWidth="3.5" strokeLinecap="round" strokeDasharray="97.4" initial={{ strokeDashoffset: 97.4 }} animate={{ strokeDashoffset: 97.4 * (1 - doneCount / total) }} transition={{ duration: 0.8 }} /></svg>
                 <span className="absolute inset-0 grid place-items-center font-display text-sm font-extrabold text-ink">{doneCount}/{total}</span>
               </div>
               <div><p className="font-display text-[15px] font-bold text-ink">{missing.length ? 'Almost there' : 'Profile complete'}</p><p className="text-xs text-muted">{missing.length ? `${missing.length} required detail${missing.length > 1 ? 's' : ''} missing` : 'You can generate invoices'}</p></div>
             </div>
-            {missing.length > 0 && <ul className="mt-4 space-y-1.5">{missing.map((m) => <li key={m}><button onClick={() => setTab(FIELD_TAB[m] ?? 'business')} className="text-left text-[13px] font-semibold text-warn-ink hover:underline">• {LABELS[m] ?? m}</button></li>)}</ul>}
+            {missing.length > 0 && <ul className="relative mt-4 space-y-1.5">{missing.map((m) => <li key={m}><button onClick={() => setTab(FIELD_TAB[m] ?? 'business')} className="text-left text-[13px] font-semibold text-warn-ink hover:underline">• {LABELS[m] ?? m}</button></li>)}</ul>}
+            {!missing.length && (
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative mt-4 flex items-center gap-1.5 text-[13px] font-semibold text-good-ink">
+                <CheckCircle2 className="size-4" /> Ready to invoice
+              </motion.p>
+            )}
           </div>
           <nav className="card p-2" aria-label="Settings sections">
             {TABS.map((t) => (
@@ -134,8 +140,9 @@ export default function Settings() {
               <h2 className="font-display text-lg font-bold text-ink">Your logo</h2>
               <p className="mt-1 text-sm text-muted">PNG or JPG, up to 2 MB. It appears at the top of your invoices and PDFs.</p>
               <div onDragOver={(e) => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files[0]) }}
-                className={clsx('mt-6 grid place-items-center rounded-2xl border-2 border-dashed p-10 text-center transition-colors', drag ? 'border-brand bg-brand-soft' : 'border-line-strong bg-surface-2')}>
-                {logo ? <img src={logo} alt="Business logo" className="max-h-28 max-w-56 rounded-lg object-contain" /> : <span className="grid size-20 place-items-center rounded-2xl bg-brand-soft text-brand"><ImagePlus className="size-9" /></span>}
+                className={clsx('relative mt-6 grid place-items-center overflow-hidden rounded-2xl border-2 border-dashed p-10 text-center transition-all duration-200', drag ? 'scale-[1.01] border-brand bg-brand-soft' : 'border-line-strong bg-surface-2')}>
+                <div className="bg-grid-pattern pointer-events-none absolute inset-0 opacity-50" />
+                {logo ? <img src={logo} alt="Business logo" className="relative max-h-28 max-w-56 rounded-lg object-contain drop-shadow-md" /> : <span className="icon-badge animate-float relative grid size-20 place-items-center rounded-2xl text-white"><ImagePlus className="size-9" /></span>}
                 <p className="mt-4 text-sm font-semibold text-ink-2">{logo ? 'Looking good!' : 'Drag & drop your logo here'}</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-3">
                   <Button variant="secondary" loading={uploading} onClick={() => fileRef.current?.click()} icon={<Upload className="size-4" />}>{logo ? 'Replace logo' : 'Choose file'}</Button>

@@ -89,6 +89,7 @@ export default function Register() {
       <aside className="relative hidden overflow-hidden bg-[linear-gradient(160deg,#2a1d78_0%,#4230c9_55%,#7a3fe0_100%)] p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="animate-blob absolute -right-24 top-1/4 size-80 rounded-full bg-[#ff8a5c]/30 blur-3xl" />
         <div className="animate-blob absolute -left-20 bottom-10 size-72 rounded-full bg-[#22c98a]/25 blur-3xl [animation-delay:-6s]" />
+        <div className="bg-grid-pattern-invert pointer-events-none absolute inset-0" />
         <div className="relative" />
         <div className="relative">
           <h2 className="font-display text-4xl font-extrabold leading-tight">Get your own private billing workspace in seconds.</h2>

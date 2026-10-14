@@ -81,11 +81,20 @@ export function EmptyState({
   icon, title, message, action,
 }: { icon: ReactNode; title: string; message: string; action?: ReactNode }) {
   return (
-    <div className="grid place-items-center px-6 py-16 text-center">
-      <div className="relative mb-5">
-        <div className="absolute inset-0 -z-10 scale-150 rounded-full bg-brand/10 blur-2xl" />
-        <div className="grid size-16 place-items-center rounded-2xl bg-brand-soft text-brand">{icon}</div>
-      </div>
+    <div className="relative grid place-items-center overflow-hidden px-6 py-16 text-center">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-grid-pattern opacity-40" />
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}
+        className="relative mb-5"
+      >
+        <div className="absolute inset-0 -z-10 scale-[2.2] rounded-full bg-brand/10 blur-2xl" />
+        <div className="icon-badge animate-float grid size-[72px] place-items-center rounded-3xl text-white">
+          <span className="scale-125">{icon}</span>
+        </div>
+        <span className="absolute -right-1.5 -top-1.5 grid size-6 place-items-center rounded-full bg-[#ffb84d] text-[#3a2600] shadow-md">
+          <Sparkles className="size-3.5" strokeWidth={2.6} />
+        </span>
+      </motion.div>
       <h3 className="font-display text-lg font-bold text-ink">{title}</h3>
       <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-muted">{message}</p>
       {action && <div className="mt-6">{action}</div>}
@@ -185,21 +194,19 @@ export function StatTile({
 }: {
   label: string; value: ReactNode; hint?: ReactNode; icon: ReactNode; tone?: 'brand' | 'good' | 'warn' | 'crit' | 'info'; to?: string; delay?: number
 }) {
-  const tones = {
-    brand: 'bg-brand-soft text-brand', good: 'bg-good-soft text-good-ink', warn: 'bg-warn-soft text-warn-ink',
-    crit: 'bg-crit-soft text-crit-ink', info: 'bg-info-soft text-info-ink',
-  }
+  const badgeCls = { brand: 'icon-badge', good: 'icon-badge-good', warn: 'icon-badge-warn', crit: 'icon-badge-crit', info: 'icon-badge-info' }[tone]
   const body = (
     <motion.div
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay, duration: 0.4 }}
-      className={clsx('card group h-full p-5 transition-all duration-200', to && 'hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-pop')}
+      className={clsx('card group relative h-full overflow-hidden p-5 transition-all duration-200', to && 'hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-pop')}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className={clsx('pointer-events-none absolute -right-6 -top-10 size-28 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-20', badgeCls)} />
+      <div className="relative flex items-start justify-between gap-3">
         <span className="text-[13px] font-semibold text-muted">{label}</span>
-        <span className={clsx('grid size-9 place-items-center rounded-xl transition-transform group-hover:scale-110', tones[tone])}>{icon}</span>
+        <span className={clsx('grid size-10 place-items-center rounded-2xl text-white transition-transform duration-200 group-hover:scale-110 group-hover:rotate-3', badgeCls)}>{icon}</span>
       </div>
-      <div className="mt-3 font-display text-[28px] font-extrabold leading-none tracking-tight text-ink">{value}</div>
-      {hint && <div className="mt-2.5 text-xs text-muted">{hint}</div>}
+      <div className="relative mt-3 font-display text-[28px] font-extrabold leading-none tracking-tight text-ink">{value}</div>
+      {hint && <div className="relative mt-2.5 text-xs text-muted">{hint}</div>}
     </motion.div>
   )
   return to ? <Link to={to} className="block h-full">{body}</Link> : body

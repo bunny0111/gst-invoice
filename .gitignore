@@ -13,3 +13,4 @@ backend/scripts/_sample_invoice.pdf
 
 # Product documents stay local (not pushed)
 *.docx
+*.pdf
