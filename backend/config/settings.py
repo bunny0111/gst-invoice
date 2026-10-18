@@ -148,7 +148,8 @@ PASSWORD_HASHERS = [
 ]
 
 # PRD 7.2 - sessions expire after 24 hours of inactivity.
-SESSION_COOKIE_AGE = 60 * 60 * 24
+SESSION_COOKIE_AGE = 60 * 60 * 24                 # default: 1 day (slides - SAVE_EVERY_REQUEST - so active users stay in)
+SESSION_REMEMBER_ME_AGE = 60 * 60 * 24 * 30       # "Keep me signed in": 30 days, also sliding
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"

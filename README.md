@@ -102,6 +102,7 @@ The site installs to a phone / desktop home screen and opens like an app (no bro
 - **Install button** (`components/ui/InstallApp.tsx`): one tap on Android / desktop Chrome (`beforeinstallprompt`); step-by-step help on iPhone (Safari has no prompt).
 - **Service worker** (`public/sw.js`) is deliberately tiny: it makes the app installable and shows `offline.html` when there is no connection.
   It never caches API calls, PDFs, share links or page HTML (private, per-business data); only the hashed `/assets/*` build files are cached.
+- **Staying signed in:** sessions last 1 day (sliding). The login form's **Keep me signed in** tick box makes it 30 days (also sliding) on that device; it is pre-ticked only inside the installed app. Changing the password signs every device out.
 - Needs HTTPS (Render provides it) or `localhost`. Icons: `public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`.
 - A Play-Store APK is **not** built: a Trusted Web Activity is tied to one origin, and every business here has its own subdomain.
 

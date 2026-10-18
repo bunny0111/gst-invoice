@@ -78,6 +78,22 @@ r = A.post("/api/auth/login/", {"email": f"owner@{RUN}.test", "password": "super
 check("login OK", r.status_code == 200 and r.json()["profile_complete"] is False, r.text)
 r = B.post("/api/auth/login/", {"email": f"owner@{RUN}.test", "password": "supersecret1"})
 check("login B OK", r.status_code == 200)
+
+
+def session_ttl(remember, then_use=False):
+    """Seconds the browser would keep the session cookie after a fresh login."""
+    c = Client(A.host)
+    body = {"email": f"owner@{RUN}.test", "password": "supersecret1"}
+    c.post("/api/auth/login/", {**body, "remember": True} if remember else body)
+    if then_use:
+        c.get("/api/auth/me/")  # sliding: using the app pushes the expiry out again
+    return next(ck for ck in c.s.cookies if ck.name == "sessionid").expires - time.time()
+
+
+_DAY = 86400
+check("default login keeps you signed in for about 1 day", 0.9 * _DAY < session_ttl(False) < 1.1 * _DAY)
+check("'Keep me signed in' lasts about 30 days", 29 * _DAY < session_ttl(True) < 31 * _DAY)
+check("...and keeps sliding while you use the app", 29 * _DAY < session_ttl(True, then_use=True) < 31 * _DAY)
 check("session cookie of A does NOT work on B's host", Client(f"{slugB}.localhost:8000").get("/api/auth/me/").status_code in (401, 403))
 
 print("\n== 3. Profile (US-02)")

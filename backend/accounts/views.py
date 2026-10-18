@@ -61,6 +61,10 @@ class LoginView(CsrfProtectedMixin, APIView):
         if user is None:
             raise ApiError("Invalid email or password.", "invalid_credentials", 400)
         login(request, user)
+        # "Keep me signed in": a longer (still sliding) session for this device. Unticked = the 1-day default.
+        # Changing the password later invalidates every session, remembered or not (Django's session auth hash).
+        if request.data.get("remember") in (True, "true", "1", 1):
+            request.session.set_expiry(settings.SESSION_REMEMBER_ME_AGE)
         return Response(me_payload(request))
 
 
