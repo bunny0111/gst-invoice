@@ -90,6 +90,17 @@ def sitemap_xml(request):
     return HttpResponse(xml, content_type="application/xml")
 
 
+def _home_screen_label(name: str, limit: int = 10) -> str:
+    """Launchers cut long labels mid-word ("Sharma Furni"), so keep whole words that fit in `limit` characters."""
+    label = ""
+    for word in name.split():
+        candidate = f"{label} {word}".strip()
+        if len(candidate) > limit:
+            break
+        label = candidate
+    return label or name.strip()[:limit] or "GST Billing"
+
+
 @require_GET
 def web_manifest(request):
     """The PWA manifest, per host: a business workspace installs as ITS OWN app (its name, opens straight at its
@@ -104,7 +115,7 @@ def web_manifest(request):
     else:
         name = request.tenant.name
         data = {
-            "name": f"{name} · GST Billing", "short_name": name[:12].strip() or "GST Billing", "start_url": "/",
+            "name": f"{name} · GST Billing", "short_name": _home_screen_label(name), "start_url": "/",
             "shortcuts": [
                 {"name": "New invoice", "url": "/invoices/new", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
                 {"name": "Payment details", "url": "/payments", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
