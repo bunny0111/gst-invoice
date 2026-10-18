@@ -15,7 +15,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     allowedHosts: ['.localhost'],
-    proxy: { '/api': django, '/media': django },
+    proxy: { '/api': django, '/media': django, '/share': django },
   },
   build: { chunkSizeWarningLimit: 900 },
 })

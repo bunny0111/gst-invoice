@@ -1,0 +1,102 @@
+{% load billing_extras %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ payment.receipt_number }}</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm;
+    @bottom-center { content: "This is a computer generated receipt  |  Page " counter(page) " of " counter(pages);
+      font-size: 7.5pt; color: #8a86a8; font-family: "Segoe UI", "DejaVu Sans", Arial, sans-serif; } }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", "DejaVu Sans", Arial, sans-serif; font-size: 10pt; color: #1e1b3a; margin: 0; line-height: 1.45; }
+  .muted { color: #6b6890; }
+  .top { width: 100%; border-collapse: collapse; border-bottom: 3px solid #0f8a5f; }
+  .top td { vertical-align: top; padding: 0 0 12px 0; }
+  .logo { max-height: 56px; max-width: 150px; margin-bottom: 6px; display: block; }
+  .biz { font-size: 15pt; font-weight: 700; margin: 0 0 2px; }
+  .title { font-size: 19pt; font-weight: 800; letter-spacing: .05em; color: #0f8a5f; text-align: right; margin: 0; }
+  .sub { text-align: right; font-size: 8.5pt; color: #6b6890; }
+  .hero { margin: 22px 0 6px; background: #eaf8f1; border: 1px solid #bfe8d4; border-radius: 10px; padding: 16px 20px; }
+  .hero .label { font-size: 8pt; text-transform: uppercase; letter-spacing: .1em; color: #0f8a5f; font-weight: 700; }
+  .hero .amt { font-size: 26pt; font-weight: 800; color: #0b6b49; margin: 2px 0; }
+  .hero .words { font-size: 9pt; color: #1e1b3a; }
+  .grid { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  .grid td { vertical-align: top; width: 50%; padding: 0; }
+  .box { border: 1px solid #dcd9f5; border-radius: 8px; padding: 10px 14px; margin-right: 8px; min-height: 96px; }
+  .box.right { margin-right: 0; margin-left: 8px; }
+  .label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .08em; color: #6b6890; font-weight: 700; margin-bottom: 4px; }
+  .kv { width: 100%; border-collapse: collapse; }
+  .kv td { padding: 2px 0; font-size: 9.5pt; } .kv td:first-child { color: #6b6890; width: 42%; } .kv td:last-child { font-weight: 600; }
+  table.sum { width: 60%; margin-left: auto; border-collapse: collapse; margin-top: 18px; }
+  table.sum td { padding: 5px 0; font-size: 10pt; border-bottom: 1px solid #efedfb; }
+  table.sum td:last-child { text-align: right; font-weight: 600; white-space: nowrap; }
+  table.sum tr.due td { border-bottom: none; border-top: 2px solid #1e1b3a; font-weight: 800; padding-top: 8px; }
+  .paid-stamp { display: inline-block; border: 3px solid #0f8a5f; color: #0f8a5f; font-weight: 800; letter-spacing: .12em;
+    padding: 2px 14px; border-radius: 6px; transform: rotate(-6deg); font-size: 13pt; margin-top: 24px; }
+  .sign { text-align: right; margin-top: 40px; }
+  .sign .line { display: inline-block; width: 190px; border-top: 1px solid #1e1b3a; padding-top: 4px; font-size: 8.5pt; color: #6b6890; }
+  .note { margin-top: 18px; font-size: 8.5pt; color: #6b6890; }
+</style>
+</head>
+<body>
+<table class="top"><tr>
+  <td style="width:62%">
+    {% if logo %}<img class="logo" src="{{ logo }}" alt="">{% endif %}
+    <p class="biz">{{ seller.business_name }}</p>
+    <div class="muted">
+      {{ seller.address_line1 }}{% if seller.address_line2 %}, {{ seller.address_line2 }}{% endif %}<br>
+      {{ seller.city }}, {{ seller.state_name }} - {{ seller.pincode }}<br>
+      {% if seller.phone %}Ph: {{ seller.phone }}{% endif %}{% if seller.email %} &nbsp;|&nbsp; {{ seller.email }}{% endif %}
+    </div>
+    {% if seller.gstin %}<div style="margin-top:4px"><b>GSTIN:</b> {{ seller.gstin }}</div>{% endif %}
+  </td>
+  <td style="width:38%">
+    <p class="title">PAYMENT RECEIPT</p>
+    <div class="sub">Receipt no. <b>{{ payment.receipt_number }}</b><br>Date {{ payment.payment_date|date:"d M Y" }}</div>
+  </td>
+</tr></table>
+
+<div class="hero">
+  <div class="label">Amount received</div>
+  <div class="amt">&#8377; {{ payment.amount|inr }}</div>
+  <div class="words">{{ amount_in_words }}</div>
+</div>
+
+<table class="grid"><tr>
+  <td>
+    <div class="box">
+      <div class="label">Received from</div>
+      <b style="font-size:11pt">{{ buyer.name }}</b><br>
+      <span class="muted">{% if buyer.address %}{{ buyer.address|linebreaksbr }}<br>{% endif %}
+      {% if buyer.city %}{{ buyer.city }}, {% endif %}{{ buyer.state_name }}{% if buyer.pincode %} - {{ buyer.pincode }}{% endif %}</span>
+      {% if buyer.gstin %}<br><b>GSTIN:</b> {{ buyer.gstin }}{% endif %}
+    </div>
+  </td>
+  <td>
+    <div class="box right">
+      <div class="label">Payment details</div>
+      <table class="kv">
+        <tr><td>Payment date</td><td>{{ payment.payment_date|date:"d M Y" }}</td></tr>
+        <tr><td>Mode</td><td>{{ mode_label }}</td></tr>
+        {% if payment.reference %}<tr><td>Reference</td><td>{{ payment.reference }}</td></tr>{% endif %}
+        <tr><td>Against invoice</td><td>{{ invoice.invoice_number }}</td></tr>
+        <tr><td>Invoice date</td><td>{{ invoice.invoice_date|date:"d M Y" }}</td></tr>
+      </table>
+    </div>
+  </td>
+</tr></table>
+
+<table class="sum">
+  <tr><td>Invoice total</td><td>&#8377; {{ invoice.grand_total|inr }}</td></tr>
+  <tr><td>Received with this receipt</td><td>&#8377; {{ payment.amount|inr }}</td></tr>
+  <tr><td>Total received so far</td><td>&#8377; {{ invoice.amount_paid|inr }}</td></tr>
+  <tr class="due"><td>Balance due</td><td>&#8377; {{ invoice.balance_due|inr }}</td></tr>
+</table>
+
+{% if payment.notes %}<p class="note"><b>Notes:</b> {{ payment.notes }}</p>{% endif %}
+{% if invoice.balance_due <= 0 %}<div class="paid-stamp">PAID IN FULL</div>{% endif %}
+
+<div class="sign"><span class="line">Authorised signatory<br><b>{{ seller.business_name }}</b></span></div>
+<p class="note">Thank you for your payment.</p>
+</body>
+</html>

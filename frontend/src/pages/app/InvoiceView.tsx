@@ -2,19 +2,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft, Ban, Banknote, CircleDollarSign, Download, Eye, Landmark, Lock, Pencil, ReceiptText, Send, Smartphone, Trash2, Undo2, Wallet,
+  ArrowLeft, Ban, Banknote, CircleDollarSign, Download, Eye, Landmark, Lock, Mail, MessageCircle, Pencil, ReceiptText, Send, Smartphone, Trash2, Wallet,
 } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { PageLoader, StatusBadge } from '@/components/ui/Bits'
-import { Button } from '@/components/ui/Button'
+import { Button, IconButton } from '@/components/ui/Button'
 import { Field, Textarea, TextInput, inputCls } from '@/components/ui/Form'
 import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { ApiError, del, get, post } from '@/lib/api'
 import { fmtDate, fmtDateTime, inr, inrPlain, todayISO, trimZero } from '@/lib/format'
 import { useRefreshUsage } from '@/lib/hooks'
-import type { InvoiceDetail } from '@/lib/types'
+import { openPendingWindow, sendToEmail, sendToWhatsApp } from '@/lib/share'
+import { EditPaymentModal, PaymentDetailsModal, UndoPaymentDialog, receiptHref } from '@/components/payments/PaymentDialogs'
+import type { InvoiceDetail, Payment, PaymentRecord } from '@/lib/types'
 
 const MODES = [
   { code: 'cash', label: 'Cash', icon: Banknote },
@@ -30,6 +32,10 @@ export default function InvoiceView() {
   const refreshUsage = useRefreshUsage()
   const [payOpen, setPayOpen] = useState(false)
   const [confirm, setConfirm] = useState<null | 'finalize' | 'cancel' | 'delete'>(null)
+  const [viewing, setViewing] = useState<PaymentRecord | null>(null)
+  const [editingPay, setEditingPay] = useState<PaymentRecord | null>(null)
+  const [undoing, setUndoing] = useState<PaymentRecord | null>(null)
+  const [sending, setSending] = useState<null | 'whatsapp' | 'email'>(null)
 
   const inv = useQuery({ queryKey: ['invoice', id], queryFn: () => get<InvoiceDetail>(`/api/invoices/${id}/`) })
   const refresh = (data?: InvoiceDetail) => {
@@ -46,11 +52,27 @@ export default function InvoiceView() {
     onSuccess: () => { refresh(); refreshUsage(); toast.success('Draft deleted'); navigate('/invoices', { replace: true }) },
     onError: (e) => { setConfirm(null); toast.error(e instanceof ApiError ? e.message : 'Could not delete') },
   })
-  const undo = useMutation({
-    mutationFn: (pid: number) => del<InvoiceDetail>(`/api/invoices/${id}/payments/${pid}/`),
-    onSuccess: (d) => { refresh(d); toast.success('Payment removed') },
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Could not remove payment'),
-  })
+  const refreshAfterPaymentChange = () => {
+    qc.invalidateQueries({ queryKey: ['invoice', id] }); qc.invalidateQueries({ queryKey: ['invoices'] }); qc.invalidateQueries({ queryKey: ['invoice-summary'] })
+    qc.invalidateQueries({ queryKey: ['dashboard'] }); qc.invalidateQueries({ queryKey: ['payments'] }); qc.invalidateQueries({ queryKey: ['payments-summary'] })
+  }
+  // WhatsApp must open inside the click, before the network round trip (popup blockers)
+  const sendWhatsApp = async () => {
+    const popup = openPendingWindow()
+    setSending('whatsapp')
+    try {
+      const r = await sendToWhatsApp(Number(id), popup)
+      if (r.opened) toast.success(`WhatsApp opened for ${r.info.customer_name}`)
+      else toast.warning('Your browser blocked the WhatsApp window — allow pop-ups for this site and try again.')
+    } catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not prepare the WhatsApp message.') }
+    finally { setSending(null) }
+  }
+  const sendEmail = async () => {
+    setSending('email')
+    try { const r = await sendToEmail(Number(id)); toast.success(`Invoice emailed to ${r.sent_to}`) }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : 'Could not send the email.') }
+    finally { setSending(null) }
+  }
 
   if (inv.isLoading) return <PageLoader />
   if (inv.isError || !inv.data) return <div className="card p-10 text-center text-muted">Invoice not found. <Link to="/invoices" className="font-semibold text-brand-ink">Back to invoices</Link></div>
@@ -60,6 +82,10 @@ export default function InvoiceView() {
   const payable = ['sent', 'partial'].includes(d.stored_status)
   const balance = Number(d.balance_due)
   const pdf = `/api/invoices/${d.id}/pdf/`
+  const toRecord = (p: Payment): PaymentRecord => ({
+    ...p, invoice: d.id, invoice_number: d.invoice_number ?? '', invoice_status: d.status, invoice_total: d.grand_total,
+    invoice_paid: d.amount_paid, invoice_balance: d.balance_due, customer_name: d.customer_name,
+  })
 
   return (
     <>
@@ -94,19 +120,30 @@ export default function InvoiceView() {
                 <a href={pdf} download><Button className="w-full" variant={payable ? 'secondary' : 'primary'} icon={<Download className="size-4" />}>PDF</Button></a>
                 <a href={`${pdf}?inline=1`} target="_blank" rel="noreferrer"><Button className="w-full" variant="secondary" icon={<Eye className="size-4" />}>Preview</Button></a>
               </div>)}
+              {!draft && !cancelled && (<div className="space-y-2.5 rounded-2xl border border-line bg-surface-2 p-3">
+                <p className="px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">Send to {d.customer_name}</p>
+                <Button className="w-full" variant="whatsapp" onClick={sendWhatsApp} loading={sending === 'whatsapp'} disabled={!!sending} icon={<MessageCircle className="size-[18px]" />}>Send to WhatsApp</Button>
+                <Button className="w-full" variant="secondary" onClick={sendEmail} loading={sending === 'email'} disabled={!!sending} icon={<Mail className="size-[18px]" />}>Send to Email</Button>
+              </div>)}
               {!draft && !cancelled && <Button className="w-full" variant="ghost" onClick={() => setConfirm('cancel')} icon={<Ban className="size-4" />}>Cancel invoice</Button>}
             </div>
           </div>
 
           {d.payments.length > 0 && (
             <div className="card p-5">
-              <h3 className="font-display text-[15px] font-bold text-ink">Payments received</h3>
+              <div className="flex items-center justify-between gap-3"><h3 className="font-display text-[15px] font-bold text-ink">Payment details</h3>
+                <Link to={`/payments?q=${encodeURIComponent(d.invoice_number ?? '')}`} className="text-[13px] font-bold text-brand-ink hover:underline">All payments →</Link></div>
               <ul className="mt-4 space-y-3">
                 {d.payments.map((p) => (
                   <li key={p.id} className="flex items-center gap-3 rounded-xl bg-surface-2 p-3">
                     <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-good-soft text-good-ink"><CircleDollarSign className="size-[18px]" /></span>
-                    <div className="min-w-0 flex-1"><p className="num text-sm font-bold text-ink">{inr(p.amount)}</p><p className="truncate text-xs text-muted">{fmtDate(p.payment_date)} · {p.mode_label}{p.reference ? ` · ${p.reference}` : ''}</p></div>
-                    {!cancelled && <button onClick={() => undo.mutate(p.id)} disabled={undo.isPending} aria-label="Undo this payment" title="Undo this payment" className="rounded-lg p-2 text-muted hover:bg-crit-soft hover:text-crit-ink"><Undo2 className="size-4" /></button>}
+                    <div className="min-w-0 flex-1"><p className="num text-sm font-bold text-ink">{inr(p.amount)}</p><p className="truncate text-xs text-muted">{p.receipt_number} · {fmtDate(p.payment_date)} · {p.mode_label}</p></div>
+                    <div className="flex shrink-0 items-center">
+                      <IconButton label="View details" onClick={() => setViewing(toRecord(p))} className="!size-8"><Eye className="size-4" /></IconButton>
+                      <IconButton label="Edit payment" onClick={() => setEditingPay(toRecord(p))} className="!size-8"><Pencil className="size-4" /></IconButton>
+                      <a href={receiptHref(p.id)} download aria-label="Generate receipt" title="Generate receipt" className="inline-grid size-8 place-items-center rounded-lg text-ink-2 transition-colors hover:bg-brand-soft hover:text-brand-ink"><Download className="size-4" /></a>
+                      <IconButton label="Delete payment" onClick={() => setUndoing(toRecord(p))} className="!size-8 hover:!bg-crit-soft hover:!text-crit-ink"><Trash2 className="size-4" /></IconButton>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -124,6 +161,9 @@ export default function InvoiceView() {
         </aside>
       </div>
 
+      <PaymentDetailsModal payment={viewing} onClose={() => setViewing(null)} onEdit={(p) => { setViewing(null); setEditingPay(p) }} />
+      <EditPaymentModal payment={editingPay} onClose={() => setEditingPay(null)} onSaved={() => { setEditingPay(null); refreshAfterPaymentChange() }} />
+      <UndoPaymentDialog payment={undoing} onClose={() => setUndoing(null)} onDone={() => { setUndoing(null); refreshAfterPaymentChange() }} />
       <PaymentModal open={payOpen} onClose={() => setPayOpen(false)} invoice={d} onDone={(x) => { refresh(x); setPayOpen(false) }} />
       <ConfirmDialog open={confirm === 'finalize'} onClose={() => setConfirm(null)} onConfirm={() => act.mutate('finalize')} loading={act.isPending} title="Finalize this invoice?" confirmLabel="Finalize & lock"
         message="An invoice number will be assigned and the invoice will be locked. You can still download the PDF and record payments." />

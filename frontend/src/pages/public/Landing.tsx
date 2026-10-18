@@ -424,7 +424,7 @@ const FAQS = [
   ['How is my data kept private?', 'Every business gets its own isolated PostgreSQL schema and its own subdomain (yourname.app…). Your invoices are never stored alongside anyone else\'s.'],
   ['Can I edit an invoice after finalizing?', 'Finalized invoices are locked so they always match what your customer received. You can cancel one and issue a corrected invoice. Drafts are fully editable.'],
   ['Which GST rates are supported?', 'The slabs 0%, 5%, 12%, 18% and 28% — with intra-state (CGST + SGST), inter-state (IGST), exempt and export / SEZ zero-rated supplies.'],
-  ['Are WhatsApp sharing and GSTR-1 export available?', 'They are planned for the next release (Phase 2) — sharing, automated reminders, expense tracking and GSTR-1 export. Today you get invoicing, PDFs, payments and the dashboard.'],
+  ['Can I send invoices on WhatsApp or email?', 'Yes. Send any invoice to your customer straight from the app — on WhatsApp with a ready-to-send message and a link to the PDF, or by email with the PDF attached. Automated reminders, expense tracking and GSTR-1 export are planned for the next release.'],
 ]
 function Faq() {
   const [open, setOpen] = useState<number | null>(0)

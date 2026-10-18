@@ -11,10 +11,15 @@ from common.gst import GST_RATE_CHOICES, PAYMENT_MODES, STATE_CHOICES, UNITS
 class Customer(models.Model):
     """billing_customer (PRD 5.2). Never hard-deleted while invoices exist (PROTECT on Invoice)."""
 
+    B2B, B2C = "b2b", "b2c"
+    TYPE_CHOICES = [(B2B, "B2B - GST registered business"), (B2C, "B2C - individual / unregistered")]
+
     name = models.CharField(max_length=200)
-    gstin = models.CharField("GSTIN", max_length=15, blank=True, help_text="Filled = B2B, empty = B2C")
-    email = models.EmailField(blank=True)
-    phone = models.CharField(max_length=15, blank=True)
+    customer_type = models.CharField(max_length=3, choices=TYPE_CHOICES, default=B2C,
+                                     help_text="B2B customers must have a GSTIN; it is optional for B2C")
+    gstin = models.CharField("GSTIN", max_length=15, blank=True)
+    email = models.EmailField(blank=True, help_text="Optional")
+    phone = models.CharField(max_length=15, blank=True, help_text="Mandatory for new/edited customers (enforced in the API)")
     address = models.TextField(blank=True)
     city = models.CharField(max_length=100, blank=True)
     pincode = models.CharField(max_length=6, blank=True)
@@ -32,7 +37,7 @@ class Customer(models.Model):
 
     @property
     def is_b2b(self) -> bool:
-        return bool(self.gstin)
+        return self.customer_type == self.B2B
 
 
 class Product(models.Model):
@@ -193,3 +198,7 @@ class Payment(models.Model):
 
     class Meta:
         ordering = ["-payment_date", "-id"]
+
+    @property
+    def receipt_number(self) -> str:
+        return f"PR-{self.pk:05d}"

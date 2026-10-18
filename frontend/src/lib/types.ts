@@ -28,7 +28,7 @@ export interface Meta {
 export interface Paginated<T> { count: number; next: string | null; previous: string | null; results: T[] }
 
 export interface Customer {
-  id: number; name: string; gstin: string; email: string; phone: string; address: string; city: string
+  id: number; name: string; customer_type: 'b2b' | 'b2c'; gstin: string; email: string; phone: string; address: string; city: string
   pincode: string; state: string; state_name: string; is_active: boolean; invoice_count: number; created_at: string
 }
 
@@ -55,7 +55,7 @@ export interface LineItem {
 }
 
 export interface Payment {
-  id: number; amount: string; payment_date: string; mode: string; mode_label: string; reference: string; notes: string
+  id: number; receipt_number: string; amount: string; payment_date: string; mode: string; mode_label: string; reference: string; notes: string; created_at: string
 }
 
 export interface InvoiceDetail extends InvoiceRow {
@@ -65,6 +65,13 @@ export interface InvoiceDetail extends InvoiceRow {
   items: LineItem[]; payments: Payment[]; amount_in_words: string; is_editable: boolean
   bill_from: Record<string, any> & { logo_url: string | null }
   bill_to: Record<string, any>
+}
+
+export interface PaymentRecord {
+  id: number; receipt_number: string; amount: string; payment_date: string; mode: string; mode_label: string
+  reference: string; notes: string; created_at: string
+  invoice: number; invoice_number: string; invoice_status: InvoiceStatus; invoice_total: string
+  invoice_paid: string; invoice_balance: string; customer_name: string
 }
 
 export interface Profile {

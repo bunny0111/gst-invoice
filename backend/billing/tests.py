@@ -115,3 +115,101 @@ class FormattingTests(SimpleTestCase):
         self.assertEqual(inr(Decimal("1234567.5")), "12,34,567.50")
         self.assertEqual(inr(Decimal("999")), "999.00")
         self.assertEqual(inr(Decimal("100000")), "1,00,000.00")
+
+
+# --------------------------------------------------------------------------- customer rules
+class CustomerRuleTests(SimpleTestCase):
+    """Phone mandatory for all; email optional for all; GSTIN mandatory for B2B, optional for B2C."""
+
+    GSTIN = "07ABCDE1234F1Z5"
+
+    def check(self, **data):
+        from .serializers import CustomerSerializer
+
+        ser = CustomerSerializer(data={"name": "Acme", "state": "DL", **data})
+        ser.is_valid()
+        return ser
+
+    def test_phone_is_mandatory(self):
+        for ctype, extra in (("b2c", {}), ("b2b", {"gstin": self.GSTIN})):
+            ser = self.check(customer_type=ctype, **extra)
+            self.assertIn("phone", ser.errors, ctype)
+            self.assertEqual(str(ser.errors["phone"][0]), "Phone number is required.")
+
+    def test_blank_phone_is_rejected(self):
+        self.assertIn("phone", self.check(customer_type="b2c", phone="   ").errors)
+
+    def test_email_is_optional_for_both_types(self):
+        self.assertEqual(self.check(customer_type="b2c", phone="9811111111").errors, {})
+        self.assertEqual(self.check(customer_type="b2b", gstin=self.GSTIN, phone="9811111111").errors, {})
+
+    def test_b2b_requires_gstin(self):
+        ser = self.check(customer_type="b2b", phone="9811111111")
+        self.assertEqual(str(ser.errors["gstin"][0]), "GST number is required for B2B customers.")
+
+    def test_b2c_gstin_is_optional(self):
+        self.assertEqual(self.check(customer_type="b2c", phone="9811111111").errors, {})
+        self.assertEqual(self.check(customer_type="b2c", phone="9811111111", gstin=self.GSTIN).errors, {})
+
+    def test_gstin_still_validated_and_uppercased(self):
+        self.assertIn("gstin", self.check(customer_type="b2c", phone="9811111111", gstin="123").errors)
+        ser = self.check(customer_type="b2b", phone="9811111111", gstin=self.GSTIN.lower())
+        self.assertEqual(ser.validated_data["gstin"], self.GSTIN)
+
+    def test_type_is_inferred_for_api_clients_that_omit_it(self):
+        self.assertEqual(self.check(phone="9811111111", gstin=self.GSTIN).validated_data["customer_type"], "b2b")
+        self.assertEqual(self.check(phone="9811111111").validated_data["customer_type"], "b2c")
+
+
+# --------------------------------------------------------------------------- sharing
+class SharingTests(SimpleTestCase):
+    def test_whatsapp_number_normalisation(self):
+        from .sharing import whatsapp_number
+
+        self.assertEqual(whatsapp_number("98111 22233"), "919811122233")       # bare Indian mobile -> +91
+        self.assertEqual(whatsapp_number("09811122233"), "919811122233")       # leading 0
+        self.assertEqual(whatsapp_number("+91 98111-22233"), "919811122233")   # already international
+        self.assertEqual(whatsapp_number("+44 7911 123456"), "447911123456")   # other country untouched
+        self.assertEqual(whatsapp_number(""), "")
+
+    def test_share_token_round_trip(self):
+        from .sharing import make_share_token, read_share_token
+
+        token = make_share_token(7, "t_sharma")
+        self.assertEqual(read_share_token(token, "t_sharma"), 7)
+
+    def test_share_token_is_bound_to_its_tenant(self):
+        """Invoice ids repeat across businesses - a token from one must be useless on another."""
+        from .sharing import make_share_token, read_share_token
+
+        token = make_share_token(7, "t_sharma")
+        self.assertIsNone(read_share_token(token, "t_priya"))
+
+    def test_tampered_or_garbage_tokens_are_rejected(self):
+        from .sharing import make_share_token, read_share_token
+
+        token = make_share_token(7, "t_sharma")
+        self.assertIsNone(read_share_token(token[:-2] + "xx", "t_sharma"))
+        self.assertIsNone(read_share_token("not-a-token", "t_sharma"))
+
+    def test_expired_token_is_rejected(self):
+        from django.core import signing
+
+        from .sharing import SHARE_SALT, read_share_token
+
+        token = signing.dumps({"i": 7, "s": "t_sharma"}, salt=SHARE_SALT)
+        with self.settings():  # a token "from the future" relative to max_age
+            import time
+            from unittest import mock
+
+            with mock.patch("django.core.signing.time.time", return_value=time.time() + 61 * 24 * 3600):
+                self.assertIsNone(read_share_token(token, "t_sharma"))
+
+    def test_whatsapp_url_encodes_the_message(self):
+        from .sharing import whatsapp_url
+
+        url = whatsapp_url("9811122233", "Hi there & welcome\nLink: https://x.test/a?b=1")
+        self.assertTrue(url.startswith("https://wa.me/919811122233?text="))
+        self.assertNotIn(" ", url)
+        self.assertNotIn("\n", url)
+        self.assertIn("%26", url)  # the ampersand is escaped, not treated as a new query parameter

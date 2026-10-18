@@ -6,7 +6,7 @@ from django.core.files.storage import default_storage
 from django.template.loader import render_to_string
 
 from common.api import ApiError
-from common.gst import STATE_NAMES
+from common.gst import PAYMENT_MODES, STATE_NAMES
 from common.words import amount_in_words
 
 from .services import business_snapshot, customer_snapshot
@@ -43,5 +43,27 @@ def render_invoice_pdf(invoice, profile) -> bytes:
         "is_intra": invoice.supply_type == "intrastate",
         "is_export": invoice.supply_type == "export",
         "status": invoice.display_status,
+    })
+    return HTML(string=html).write_pdf()
+
+
+def render_receipt_pdf(payment, profile) -> bytes:
+    """A one-page receipt for a single recorded payment (the "Generate receipt" action)."""
+    try:
+        from weasyprint import HTML
+    except OSError:
+        raise ApiError("The PDF engine is not available on this server.", "pdf_unavailable", 503)
+
+    invoice = payment.invoice
+    seller = invoice.business_snapshot or business_snapshot(profile)
+    buyer = invoice.customer_snapshot or customer_snapshot(invoice.customer)
+    html = render_to_string("billing/receipt_pdf.html", {
+        "payment": payment,
+        "invoice": invoice,
+        "seller": seller,
+        "buyer": buyer,
+        "logo": _logo_data_uri(seller.get("logo")),
+        "amount_in_words": amount_in_words(payment.amount),
+        "mode_label": dict(PAYMENT_MODES).get(payment.mode, payment.mode),
     })
     return HTML(string=html).write_pdf()

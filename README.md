@@ -82,6 +82,18 @@ deliberately **never indexed** — only the public marketing site (landing + reg
   against the real `techcognixium.com` domain (they're built from the request's own host, so this
   should already be correct once DNS points there — just verify once).
 
+## Sharing, customer rules & payment details
+
+- **Send to WhatsApp / Send to Email** sit above *Finalize invoice* in the editor (and on the invoice page for resending).
+  Sending finalizes & locks the invoice first, then opens `wa.me` addressed to the customer's phone (a bare 10-digit number gets +91)
+  or emails the PDF to the customer's email. Both messages carry a **signed, tenant-bound, 60-day link** to the PDF that opens without a login
+  (`/share/invoice/<token>/`). Email goes through the configured SMTP (Resend); without `RESEND_API_KEY` it prints in the server console.
+- **Customer rules:** phone mandatory for everyone; email optional; GST number mandatory for **B2B** customers, optional for **B2C**
+  (explicit `customer_type`; migration `0002` marks existing customers with a GSTIN as B2B).
+- **Payment details** (sidebar): every payment across all invoices, with **View details / Edit payment / Delete payment / Generate receipt**
+  (receipt PDF `PR-xxxxx`). Undoing a payment always asks for confirmation first. Editing re-checks the invoice can't be over-paid and recomputes its status.
+- Plan gating is **not** applied to sharing yet (the pricing table still lists it as Starter/Pro) - one line in `InvoiceViewSet.share/send_email` if you want it.
+
 ## PRD coverage (Phase 1)
 
 All of: US-01 registration/tenancy · US-02 profile · US-03 customers · US-04 catalogue · US-05 invoices · US-06 PDF · US-07 payments · US-08 dashboard · §6 plan limits · Razorpay subscriptions · §7 non-functional requirements. Plus login/logout and email-OTP password reset from the original roadmap doc, and subscription receipts.

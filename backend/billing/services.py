@@ -199,3 +199,25 @@ def delete_payment(invoice_id: int, payment_id: int) -> Invoice:
         raise ApiError("Payment not found.", "not_found", 404)
     refresh_payment_state(invoice)
     return invoice
+
+
+@transaction.atomic
+def update_payment(payment_id: int, data: dict) -> Payment:
+    """Edit a recorded payment. The invoice's paid total / status are recomputed, and the edited
+    amount may not push the invoice past its grand total (same guard as recording a payment)."""
+    payment = Payment.objects.select_related("invoice").get(pk=payment_id)
+    invoice = Invoice.objects.select_for_update().get(pk=payment.invoice_id)
+    amount = calc.money(data.get("amount", payment.amount))
+    if amount <= 0:
+        raise ApiError("Enter an amount greater than zero.", "bad_amount", 400)
+    others = invoice.payments.exclude(pk=payment.pk).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    room = invoice.grand_total - others
+    if amount > room:
+        raise ApiError(f"Amount exceeds the outstanding balance of ₹{room} for this invoice.", "overpayment", 400)
+    payment.amount = amount
+    for field in ("payment_date", "mode", "reference", "notes"):
+        if field in data:
+            setattr(payment, field, data[field])
+    payment.save()
+    refresh_payment_state(invoice)
+    return payment

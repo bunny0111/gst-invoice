@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  ArrowRight, Crown, FileText, LayoutDashboard, LogOut, Menu, Package, Plus, Settings as SettingsIcon, TriangleAlert, Users, X,
+  ArrowRight, Crown, FileText, LayoutDashboard, LogOut, Menu, Package, Plus, Wallet, Settings as SettingsIcon, TriangleAlert, Users, X,
 } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -15,6 +15,7 @@ import { useMe, useSubscription } from '@/lib/hooks'
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/invoices', label: 'Invoices', icon: FileText },
+  { to: '/payments', label: 'Payment details', icon: Wallet },
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/products', label: 'Products & services', icon: Package },
   { to: '/settings', label: 'Business profile', icon: SettingsIcon },

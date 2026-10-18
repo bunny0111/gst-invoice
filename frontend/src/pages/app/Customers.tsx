@@ -11,7 +11,7 @@ import { ApiError, del, get, patch, post, qs } from '@/lib/api'
 import { useDebounce, useMeta, useRefreshUsage, useSubscription } from '@/lib/hooks'
 import type { Customer, Paginated } from '@/lib/types'
 
-const empty = { name: '', gstin: '', state: '', phone: '', email: '', address: '', city: '', pincode: '' }
+const empty = { name: '', customer_type: 'b2c' as 'b2b' | 'b2c', gstin: '', state: '', phone: '', email: '', address: '', city: '', pincode: '' }
 
 export default function Customers() {
   const qc = useQueryClient()
@@ -80,7 +80,12 @@ export default function Customers() {
                 {rows.map((c) => (
                   <tr key={c.id} className={clsx('group border-b border-line last:border-0 transition-colors hover:bg-surface-2 hover:shadow-[inset_3px_0_0_var(--brand)]', !c.is_active && 'opacity-60')}>
                     <td className="px-5 py-3.5"><div className="flex items-center gap-3"><Avatar name={c.name} /><div className="min-w-0"><p className="truncate font-semibold text-ink">{c.name}</p><p className="truncate text-xs text-muted">{c.email || c.city || '—'}</p></div></div></td>
-                    <td className="px-3">{c.gstin ? <span className="num inline-flex items-center gap-1.5 rounded-md bg-info-soft px-2 py-1 text-xs font-semibold text-info-ink"><Building2 className="size-3" />{c.gstin}</span> : <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--neutral-soft)] px-2 py-1 text-xs font-semibold text-[var(--neutral-ink)]"><UserRound className="size-3" />B2C</span>}</td>
+                    <td className="px-3"><div className="flex flex-col items-start gap-1">
+                      {c.customer_type === 'b2b'
+                        ? <span className="inline-flex items-center gap-1.5 rounded-md bg-info-soft px-2 py-1 text-xs font-semibold text-info-ink"><Building2 className="size-3" />B2B</span>
+                        : <span className="inline-flex items-center gap-1.5 rounded-md bg-[var(--neutral-soft)] px-2 py-1 text-xs font-semibold text-[var(--neutral-ink)]"><UserRound className="size-3" />B2C</span>}
+                      {c.gstin && <span className="num text-[11.5px] text-muted">{c.gstin}</span>}
+                    </div></td>
                     <td className="px-3 text-ink-2">{c.state_name}</td>
                     <td className="num px-3 text-ink-2">{c.phone || '—'}</td>
                     <td className="num px-3 text-right font-semibold text-ink-2">{c.invoice_count}</td>
@@ -115,7 +120,7 @@ export function CustomerModal({ customer, onClose, onSaved }: { customer: Custom
   useEffect(() => {
     if (!customer) return
     setErrors({})
-    setF(customer === 'new' ? empty : { name: customer.name, gstin: customer.gstin, state: customer.state, phone: customer.phone, email: customer.email, address: customer.address, city: customer.city, pincode: customer.pincode })
+    setF(customer === 'new' ? empty : { name: customer.name, customer_type: customer.customer_type ?? (customer.gstin ? 'b2b' : 'b2c'), gstin: customer.gstin, state: customer.state, phone: customer.phone, email: customer.email, address: customer.address, city: customer.city, pincode: customer.pincode })
   }, [customer])
 
   const set = (k: keyof typeof empty) => (e: { target: { value: string } }) => { setF((p) => ({ ...p, [k]: e.target.value })); setErrors((p) => ({ ...p, [k]: '' })) }
@@ -125,6 +130,9 @@ export function CustomerModal({ customer, onClose, onSaved }: { customer: Custom
     const errs: Record<string, string> = {}
     if (!f.name.trim()) errs.name = 'Customer name is required.'
     if (!f.state) errs.state = 'Select the customer\'s state — it decides CGST/SGST vs IGST.'
+    if (!f.phone.trim()) errs.phone = 'Phone number is required.'
+    if (f.customer_type === 'b2b' && !f.gstin.trim()) errs.gstin = 'GST number is required for B2B customers.'
+    else if (f.gstin.trim() && f.gstin.trim().length !== 15) errs.gstin = 'GST number must be exactly 15 letters/digits.'
     setErrors(errs)
     if (Object.keys(errs).length) return
     setBusy(true)
@@ -141,11 +149,23 @@ export function CustomerModal({ customer, onClose, onSaved }: { customer: Custom
     <Modal open={!!customer} onClose={onClose} title={isNew ? 'Add customer' : 'Edit customer'} subtitle="Their state decides whether CGST + SGST or IGST is applied." size="lg"
       footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={submit} loading={busy}>{isNew ? 'Add customer' : 'Save changes'}</Button></>}>
       <form onSubmit={submit} noValidate className="grid gap-5 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <p className="mb-1.5 text-[13px] font-semibold text-ink-2">Customer type</p>
+          <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Customer type">
+            {([['b2b', 'B2B', 'GST-registered business', Building2], ['b2c', 'B2C', 'Individual / unregistered', UserRound]] as const).map(([v, label, sub, Icon]) => (
+              <button key={v} type="button" role="radio" aria-checked={f.customer_type === v}
+                onClick={() => { setF((p) => ({ ...p, customer_type: v })); setErrors((p) => ({ ...p, gstin: '' })) }}
+                className={clsx('flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition', f.customer_type === v ? 'border-brand bg-brand-soft text-brand-ink' : 'border-line text-ink-2 hover:border-brand/40')}>
+                <Icon className="size-5 shrink-0" /><span><span className="block text-sm font-bold">{label}</span><span className="block text-xs font-normal text-muted">{sub}</span></span>
+              </button>
+            ))}
+          </div>
+        </div>
         <Field label="Name" required error={errors.name} className="sm:col-span-2"><TextInput autoFocus value={f.name} onChange={set('name')} placeholder="Customer or company name" invalid={!!errors.name} /></Field>
-        <Field label="GSTIN" error={errors.gstin} hint="Leave empty for unregistered (B2C) customers"><TextInput value={f.gstin} onChange={(e) => set('gstin')({ target: { value: e.target.value.toUpperCase() } })} maxLength={15} placeholder="15-character GSTIN" className="num uppercase" invalid={!!errors.gstin} /></Field>
+        <Field label="GST number" required={f.customer_type === 'b2b'} error={errors.gstin} hint={f.customer_type === 'b2b' ? 'Required for B2B customers' : 'Optional for B2C customers'}><TextInput value={f.gstin} onChange={(e) => set('gstin')({ target: { value: e.target.value.toUpperCase() } })} maxLength={15} placeholder="15-character GSTIN" className="num uppercase" invalid={!!errors.gstin} /></Field>
         <Field label="State" required error={errors.state}><Select value={f.state} onChange={set('state')} invalid={!!errors.state}><option value="">Select state…</option>{meta?.states.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}</Select></Field>
-        <Field label="Phone" error={errors.phone}><TextInput value={f.phone} onChange={set('phone')} inputMode="tel" placeholder="98765 43210" invalid={!!errors.phone} /></Field>
-        <Field label="Email" error={errors.email}><TextInput type="email" value={f.email} onChange={set('email')} placeholder="name@company.com" invalid={!!errors.email} /></Field>
+        <Field label="Phone" required error={errors.phone} hint="Used to send invoices on WhatsApp"><TextInput value={f.phone} onChange={set('phone')} inputMode="tel" placeholder="98765 43210" invalid={!!errors.phone} /></Field>
+        <Field label="Email" error={errors.email} hint="Optional — needed only to email invoices"><TextInput type="email" value={f.email} onChange={set('email')} placeholder="name@company.com" invalid={!!errors.email} /></Field>
         <Field label="Address" className="sm:col-span-2" error={errors.address}><Textarea rows={2} value={f.address} onChange={set('address')} placeholder="Street address" /></Field>
         <Field label="City" error={errors.city}><TextInput value={f.city} onChange={set('city')} /></Field>
         <Field label="Pincode" error={errors.pincode}><TextInput value={f.pincode} onChange={set('pincode')} inputMode="numeric" maxLength={6} className="num" invalid={!!errors.pincode} /></Field>

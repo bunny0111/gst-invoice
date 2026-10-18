@@ -14,6 +14,7 @@ import Dashboard from './pages/app/Dashboard'
 import InvoiceEditor from './pages/app/InvoiceEditor'
 import InvoiceView from './pages/app/InvoiceView'
 import Invoices from './pages/app/Invoices'
+import Payments from './pages/app/Payments'
 import Products from './pages/app/Products'
 import Settings from './pages/app/Settings'
 import Subscription from './pages/app/Subscription'
@@ -91,6 +92,7 @@ function TenantRoutes() {
         <Route path="invoices/new" element={<InvoiceEditor />} />
         <Route path="invoices/:id" element={<InvoiceView />} />
         <Route path="invoices/:id/edit" element={<InvoiceEditor />} />
+        <Route path="payments" element={<Payments />} />
         <Route path="customers" element={<Customers />} />
         <Route path="products" element={<Products />} />
         <Route path="settings" element={<Settings />} />

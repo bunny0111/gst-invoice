@@ -182,6 +182,7 @@ REST_FRAMEWORK = {
         "register": "15/min",
         "otp": "10/min",
         "lookup": "60/min",
+        "share": "30/min",
     },
     "EXCEPTION_HANDLER": "common.drf.exception_handler",
 }

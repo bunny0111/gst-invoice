@@ -1,24 +1,27 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.conf import settings
+from django.core.mail import EmailMessage
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Max, Q, Sum
 from django.db.models.functions import Lower, TruncMonth
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from accounts.views import get_profile
 from common.api import ApiError
 
-from . import services
-from .models import Customer, Invoice, Product
-from .pdf import render_invoice_pdf
+from . import services, sharing
+from .models import Customer, Invoice, Payment, Product
+from .pdf import render_invoice_pdf, render_receipt_pdf
 from .serializers import (CustomerSerializer, InvoiceDetailSerializer, InvoiceListSerializer,
-                          InvoiceWriteSerializer, PaymentWriteSerializer, ProductSerializer)
+                          InvoiceWriteSerializer, PaymentRecordSerializer, PaymentWriteSerializer, ProductSerializer)
 from .usage import enforce_limit
 
 
@@ -106,6 +109,7 @@ def status_q(value: str) -> Q | None:
 
 class InvoiceViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
+    throttle_scope = None  # per-action override: the share / send-email actions use the "share" scope
 
     def get_queryset(self):
         qs = Invoice.objects.select_related("customer")
@@ -205,6 +209,55 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = f'{disposition}; filename="{invoice.pdf_filename}"'
         return response
 
+    # --- sharing with the customer (WhatsApp / email) ------------------------------------------------
+    def _shareable(self, invoice):
+        if invoice.status == Invoice.DRAFT:
+            raise ApiError("Finalize the invoice before sending it to the customer.", "is_draft", 409)
+        if invoice.status == Invoice.CANCELLED:
+            raise ApiError("A cancelled invoice can't be sent.", "is_cancelled", 409)
+
+    def _business_name(self, invoice, profile):
+        return (invoice.business_snapshot or {}).get("business_name") or profile.business_name
+
+    @action(detail=True, methods=["post"], throttle_classes=[ScopedRateThrottle], throttle_scope="share")
+    def share(self, request, pk=None):
+        """Everything the browser needs to open WhatsApp: a wa.me link addressed to the customer's phone,
+        carrying a ready message + a signed link to the invoice PDF."""
+        invoice = self.get_object()
+        self._shareable(invoice)
+        phone = (invoice.customer.phone or "").strip()
+        if not phone:
+            raise ApiError("This customer has no phone number. Add one on the Customers page first.", "no_phone", 400)
+        profile = get_profile(request.user)
+        link = sharing.share_url(request, invoice.pk)
+        message = sharing.invoice_message(invoice, self._business_name(invoice, profile), link)
+        return Response({"url": link, "message": message, "phone": phone, "customer_name": invoice.customer.name,
+                         "whatsapp_url": sharing.whatsapp_url(phone, message)})
+
+    @action(detail=True, methods=["post"], url_path="send-email", throttle_classes=[ScopedRateThrottle],
+            throttle_scope="share")
+    def send_email(self, request, pk=None):
+        """Emails the invoice (PDF attached) to the customer's email address."""
+        invoice = self.get_object()
+        self._shareable(invoice)
+        to = (invoice.customer.email or "").strip()
+        if not to:
+            raise ApiError("This customer has no email address. Add one on the Customers page first.", "no_email", 400)
+        profile = get_profile(request.user)
+        business = self._business_name(invoice, profile)
+        body = sharing.invoice_message(invoice, business, sharing.share_url(request, invoice.pk))
+        mail = EmailMessage(
+            subject=f"Invoice {invoice.invoice_number} from {business}",
+            body=body, from_email=settings.DEFAULT_FROM_EMAIL, to=[to],
+            reply_to=[profile.email] if profile.email else None,
+        )
+        mail.attach(invoice.pdf_filename, render_invoice_pdf(invoice, profile), "application/pdf")
+        try:
+            mail.send(fail_silently=False)
+        except Exception:  # SMTP down, bad credentials, rejected recipient ...
+            raise ApiError("The email couldn't be sent right now. Please try again in a moment.", "email_failed", 502)
+        return Response({"sent_to": to, "detail": f"Invoice emailed to {to}."})
+
     @action(detail=False, methods=["get"])
     def summary(self, request):
         """Tab counts for the invoice list: All / Paid / Pending / Overdue / Draft."""
@@ -296,3 +349,85 @@ class DashboardView(APIView):
             "trend": trend,
             "month_label": this_start.strftime("%B %Y"),
         })
+
+
+# --------------------------------------------------------------------------- payment details
+class PaymentViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin,
+                     mixins.DestroyModelMixin, viewsets.GenericViewSet):
+    """The Payment details section: every recorded payment, with view / edit / delete / receipt."""
+
+    serializer_class = PaymentRecordSerializer
+    http_method_names = ["get", "patch", "put", "delete", "head", "options"]
+
+    def get_queryset(self):
+        qs = Payment.objects.select_related("invoice", "invoice__customer").order_by("-payment_date", "-id")
+        p = self.request.query_params
+        if p.get("q", "").strip():
+            q = p["q"].strip()
+            cond = (Q(invoice__invoice_number__icontains=q) | Q(invoice__customer__name__icontains=q)
+                    | Q(reference__icontains=q))
+            if q.upper().startswith("PR-") and q[3:].isdigit():  # a receipt number
+                cond |= Q(pk=int(q[3:]))
+            qs = qs.filter(cond)
+        if p.get("mode"):
+            qs = qs.filter(mode=p["mode"])
+        if p.get("invoice"):
+            qs = qs.filter(invoice_id=p["invoice"])
+        if p.get("date_from"):
+            qs = qs.filter(payment_date__gte=p["date_from"])
+        if p.get("date_to"):
+            qs = qs.filter(payment_date__lte=p["date_to"])
+        return qs
+
+    def update(self, request, *args, **kwargs):
+        payment = self.get_object()
+        ser = PaymentWriteSerializer(data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        services.update_payment(payment.pk, ser.validated_data)
+        payment = self.get_queryset().get(pk=payment.pk)
+        return Response(self.get_serializer(payment).data)
+
+    def destroy(self, request, *args, **kwargs):
+        payment = self.get_object()
+        services.delete_payment(payment.invoice_id, payment.pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """Totals for the current filters (shown above the table)."""
+        qs = self.get_queryset()
+        month_start = timezone.localdate().replace(day=1)
+        total = qs.aggregate(t=Sum("amount"), n=Count("id"))
+        month = qs.filter(payment_date__gte=month_start).aggregate(t=Sum("amount"))["t"]
+        return Response({"count": total["n"] or 0, "total": total["t"] or Decimal("0.00"),
+                         "this_month": month or Decimal("0.00")})
+
+    @action(detail=True, methods=["get"])
+    def receipt(self, request, pk=None):
+        payment = self.get_object()
+        pdf = render_receipt_pdf(payment, get_profile(request.user))
+        response = HttpResponse(pdf, content_type="application/pdf")
+        disposition = "inline" if request.query_params.get("inline") else "attachment"
+        response["Content-Disposition"] = f'{disposition}; filename="{payment.receipt_number}.pdf"'
+        return response
+
+
+# --------------------------------------------------------------------------- public signed invoice link
+def shared_invoice_pdf(request, token: str):
+    """What the customer opens from the WhatsApp message / email: the invoice PDF, no login. Valid only for a
+    signed token issued by THIS business, only for an issued (non-draft) invoice, and only while unexpired."""
+    tenant = request.tenant
+    invoice_id = sharing.read_share_token(token, tenant.schema_name)
+    if invoice_id is None or not tenant.is_active:
+        raise Http404
+    invoice = Invoice.objects.select_related("customer").exclude(status=Invoice.DRAFT).filter(pk=invoice_id).first()
+    if invoice is None:
+        raise Http404
+    from accounts.models import BusinessProfile
+
+    pdf = render_invoice_pdf(invoice, BusinessProfile.objects.first())
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{invoice.pdf_filename}"'
+    response["Cache-Control"] = "private, no-store"
+    response["X-Robots-Tag"] = "noindex, nofollow"
+    return response

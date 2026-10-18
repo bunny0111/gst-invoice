@@ -14,14 +14,21 @@ _PHONE = re.compile(r"^\+?[0-9][0-9 \-]{6,14}$")
 
 # --------------------------------------------------------------------------- customers
 class CustomerSerializer(serializers.ModelSerializer):
+    """Customer rules: phone mandatory for everyone, email optional for everyone, GSTIN mandatory for
+    B2B customers and optional for B2C."""
+
     state = serializers.ChoiceField(choices=STATE_CHOICES)
     state_name = serializers.SerializerMethodField()
     invoice_count = serializers.IntegerField(read_only=True, default=0)
+    customer_type = serializers.ChoiceField(choices=Customer.TYPE_CHOICES, required=False)
+    phone = serializers.CharField(
+        max_length=15, error_messages={"required": "Phone number is required.", "blank": "Phone number is required.",
+                                        "null": "Phone number is required."})
 
     class Meta:
         model = Customer
-        fields = ["id", "name", "gstin", "email", "phone", "address", "city", "pincode", "state", "state_name",
-                  "is_active", "invoice_count", "created_at"]
+        fields = ["id", "name", "customer_type", "gstin", "email", "phone", "address", "city", "pincode", "state",
+                  "state_name", "is_active", "invoice_count", "created_at"]
         read_only_fields = ["is_active", "created_at"]
 
     def get_state_name(self, obj):
@@ -36,7 +43,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     def validate_gstin(self, value):  # US-03 AC7: auto-uppercased
         value = value.strip().upper()
         if value and not is_valid_gstin(value):
-            raise serializers.ValidationError("GSTIN must be exactly 15 letters/digits.")
+            raise serializers.ValidationError("GST number must be exactly 15 letters/digits.")
         return value
 
     def validate_pincode(self, value):
@@ -45,9 +52,21 @@ class CustomerSerializer(serializers.ModelSerializer):
         return value.strip()
 
     def validate_phone(self, value):
-        if value and not _PHONE.match(value.strip()):
+        value = value.strip()
+        if not _PHONE.match(value):
             raise serializers.ValidationError("Enter a valid phone number.")
-        return value.strip()
+        return value
+
+    def validate(self, attrs):
+        existing = self.instance
+        gstin = attrs["gstin"] if "gstin" in attrs else (existing.gstin if existing else "")
+        ctype = attrs.get("customer_type") or (existing.customer_type if existing else None)
+        if ctype is None:  # API clients that don't send a type: a GSTIN means B2B (the old rule)
+            ctype = Customer.B2B if gstin else Customer.B2C
+        attrs["customer_type"] = ctype
+        if ctype == Customer.B2B and not gstin:
+            raise serializers.ValidationError({"gstin": ["GST number is required for B2B customers."]})
+        return attrs
 
 
 # --------------------------------------------------------------------------- products
@@ -126,21 +145,47 @@ class LineItemReadSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     mode_label = serializers.SerializerMethodField()
+    receipt_number = serializers.CharField(read_only=True)
 
     class Meta:
         model = Payment
-        fields = ["id", "amount", "payment_date", "mode", "mode_label", "reference", "notes", "created_at"]
+        fields = ["id", "receipt_number", "amount", "payment_date", "mode", "mode_label", "reference", "notes", "created_at"]
 
     def get_mode_label(self, obj):
         return dict(PAYMENT_MODES).get(obj.mode, obj.mode)
 
 
 class PaymentWriteSerializer(serializers.Serializer):
+    """Used to record a payment (all of amount/date/mode required) and, with partial=True, to edit one."""
+
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
     payment_date = serializers.DateField()
     mode = serializers.ChoiceField(choices=PAYMENT_MODES)
     reference = serializers.CharField(max_length=100, allow_blank=True, required=False, default="")
     notes = serializers.CharField(max_length=200, allow_blank=True, required=False, default="")
+
+
+class PaymentRecordSerializer(serializers.ModelSerializer):
+    """A payment with the invoice context the Payment details page needs."""
+
+    mode_label = serializers.SerializerMethodField()
+    receipt_number = serializers.CharField(read_only=True)
+    invoice = serializers.IntegerField(source="invoice_id", read_only=True)
+    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
+    invoice_status = serializers.CharField(source="invoice.display_status", read_only=True)
+    invoice_total = serializers.DecimalField(source="invoice.grand_total", max_digits=12, decimal_places=2, read_only=True)
+    invoice_paid = serializers.DecimalField(source="invoice.amount_paid", max_digits=12, decimal_places=2, read_only=True)
+    invoice_balance = serializers.DecimalField(source="invoice.balance_due", max_digits=12, decimal_places=2, read_only=True)
+    customer_name = serializers.CharField(source="invoice.customer.name", read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = ["id", "receipt_number", "amount", "payment_date", "mode", "mode_label", "reference", "notes",
+                  "created_at", "invoice", "invoice_number", "invoice_status", "invoice_total", "invoice_paid",
+                  "invoice_balance", "customer_name"]
+
+    def get_mode_label(self, obj):
+        return dict(PAYMENT_MODES).get(obj.mode, obj.mode)
 
 
 class InvoiceListSerializer(serializers.ModelSerializer):

@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, ArrowLeft, BadgeCheck, CalendarDays, Globe2, Lock, Package, Plus, Save, Send, Trash2, UserPlus } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BadgeCheck, CalendarDays, Globe2, Lock, Mail, MessageCircle, Package, Plus, Save, Send, Trash2, UserPlus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/Modal'
 import { ApiError, get, post, put, qs } from '@/lib/api'
 import { addDaysISO, amountInWords, financialYear, inr, inrPlain, todayISO, trimZero } from '@/lib/format'
 import { calcInvoice, detectSupply, type Supply } from '@/lib/gst'
+import { openPendingWindow, sendToEmail, sendToWhatsApp } from '@/lib/share'
 import { useMe, useMeta, useProfile, useRefreshUsage, useSubscription } from '@/lib/hooks'
 import type { Customer, InvoiceDetail, Paginated, Product } from '@/lib/types'
 import { CustomerModal } from './Customers'
@@ -48,7 +49,7 @@ export default function InvoiceEditor() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({})
   const [busy, setBusy] = useState<'draft' | 'final' | null>(null)
-  const [confirmFinal, setConfirmFinal] = useState(false)
+  const [confirm, setConfirm] = useState<null | 'finalize' | 'whatsapp' | 'email'>(null)
   const [addCustomer, setAddCustomer] = useState(false)
   const [limitHit, setLimitHit] = useState<{ limit: number; plan: string } | null>(null)
   const [hydrated, setHydrated] = useState(false)
@@ -60,7 +61,7 @@ export default function InvoiceEditor() {
       const inv = existing.data
       if (!inv) return
       if (!inv.is_editable) { navigate(`/invoices/${inv.id}`, { replace: true }); return }
-      setCustomer({ id: inv.customer, name: inv.customer_name, state: inv.bill_to.state, state_name: inv.bill_to.state_name, gstin: inv.bill_to.gstin } as Customer)
+      setCustomer({ id: inv.customer, name: inv.customer_name, state: inv.bill_to.state, state_name: inv.bill_to.state_name, gstin: inv.bill_to.gstin, email: inv.bill_to.email ?? '', phone: inv.bill_to.phone ?? '' } as Customer)
       setInvoiceDate(inv.invoice_date); setDueDate(inv.due_date); setDueTouched(true)
       setIsExport(inv.supply_type === 'export'); setNotes(inv.notes); setTerms(inv.terms)
       setRows(inv.items.map((i) => ({ key: `r${++seq}`, item_name: i.item_name, description: i.description, hsn_sac_code: i.hsn_sac_code, unit: i.unit, quantity: String(Number(i.quantity)), unit_price: i.unit_price, discount_percent: String(Number(i.discount_percent)), gst_rate: String(Number(i.gst_rate)) })))
@@ -108,8 +109,11 @@ export default function InvoiceEditor() {
     return !Object.keys(e).length && !Object.keys(re).length
   }
 
-  const save = async (finalize: boolean) => {
+  /** `via` = finalize AND send the customer their invoice (the WhatsApp / email buttons). */
+  const save = async (finalize: boolean, via?: 'whatsapp' | 'email') => {
     if (!validate()) { toast.error('Please fix the highlighted fields.'); return }
+    // WhatsApp opens in a new tab: it must be opened inside this click (before any await) or the popup blocker eats it.
+    const popup = via === 'whatsapp' ? openPendingWindow() : null
     setBusy(finalize ? 'final' : 'draft'); setLimitHit(null)
     const body = {
       customer: customer!.id, invoice_date: invoiceDate, due_date: dueDate || undefined,
@@ -121,10 +125,26 @@ export default function InvoiceEditor() {
       if (finalize) inv = await post<InvoiceDetail>(`/api/invoices/${inv.id}/finalize/`)
       qc.invalidateQueries({ queryKey: ['invoices'] }); qc.invalidateQueries({ queryKey: ['invoice-summary'] }); qc.invalidateQueries({ queryKey: ['invoice', String(inv.id)] })
       refreshUsage()
-      toast.success(finalize ? `Invoice ${inv.invoice_number} finalized` : 'Draft saved')
+      if (finalize && via === 'whatsapp') {
+        try {
+          const r = await sendToWhatsApp(inv.id, popup)
+          if (r.opened) toast.success(`Invoice ${inv.invoice_number} finalized — WhatsApp opened for ${r.info.customer_name}`)
+          else toast.warning(`Invoice ${inv.invoice_number} finalized, but your browser blocked the WhatsApp window. Use "Send to WhatsApp" on the invoice page.`)
+        } catch (e) {
+          toast.warning(`Invoice ${inv.invoice_number} finalized, but WhatsApp couldn't be prepared: ${e instanceof ApiError ? e.message : 'please try again from the invoice page.'}`)
+        }
+      } else if (finalize && via === 'email') {
+        try {
+          const r = await sendToEmail(inv.id)
+          toast.success(`Invoice ${inv.invoice_number} finalized and emailed to ${r.sent_to}`)
+        } catch (e) {
+          toast.warning(`Invoice ${inv.invoice_number} finalized, but the email wasn't sent: ${e instanceof ApiError ? e.message : 'please try again from the invoice page.'}`)
+        }
+      } else toast.success(finalize ? `Invoice ${inv.invoice_number} finalized` : 'Draft saved')
       navigate(`/invoices/${inv.id}`)
     } catch (err) {
-      setConfirmFinal(false)
+      popup?.close()
+      setConfirm(null)
       if (err instanceof ApiError) {
         if (err.isPlanLimit) setLimitHit({ limit: err.data.limit, plan: sub?.plan_name ?? 'Free' })
         else if (err.code === 'profile_incomplete') toast.error('Complete your profile to generate invoices.')
@@ -135,6 +155,11 @@ export default function InvoiceEditor() {
         } else { setErrors(err.fieldErrors); toast.error(err.message) }
       } else toast.error('Could not save the invoice.')
     } finally { setBusy(null) }
+  }
+
+  const askToSend = (kind: 'finalize' | 'whatsapp' | 'email') => {
+    if (validate()) setConfirm(kind)
+    else toast.error('Please fix the highlighted fields.')
   }
 
   if ((editing && existing.isLoading) || !hydrated || !profile) return <PageLoader />
@@ -276,15 +301,32 @@ export default function InvoiceEditor() {
             </dl>
             <div className="space-y-3 border-t border-line bg-surface-2 p-5">
               <Button className="w-full" size="lg" variant="secondary" onClick={() => save(false)} loading={busy === 'draft'} disabled={!!busy || disabled} icon={<Save className="size-[18px]" />}>Save as draft</Button>
-              <Button className="w-full" size="lg" onClick={() => { if (validate()) setConfirmFinal(true); else toast.error('Please fix the highlighted fields.') }} disabled={!!busy || disabled} icon={<Send className="size-[18px]" />}>Finalize invoice</Button>
+              <div className="space-y-2.5 rounded-2xl border border-line bg-surface p-3">
+                <p className="px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">Send to customer</p>
+                <Button className="w-full" variant="whatsapp" onClick={() => askToSend('whatsapp')} disabled={!!busy || disabled || !customer || !customer.phone} icon={<MessageCircle className="size-[18px]" />}>Send to WhatsApp</Button>
+                <Button className="w-full" variant="secondary" onClick={() => askToSend('email')} disabled={!!busy || disabled || !customer || !customer.email} icon={<Mail className="size-[18px]" />}>Send to Email</Button>
+                {!customer
+                  ? <p className="px-1 text-xs text-muted">Choose a customer to enable sending.</p>
+                  : (!customer.phone || !customer.email) && <p className="px-1 text-xs leading-relaxed text-muted">
+                      {!customer.phone && 'This customer has no phone number, so WhatsApp is unavailable. '}
+                      {!customer.email && 'This customer has no email address, so email is unavailable. '}
+                      Add the missing detail on the <Link to="/customers" className="font-semibold text-brand-ink hover:underline">Customers</Link> page.
+                    </p>}
+                <p className="px-1 text-xs leading-relaxed text-muted">Sending finalizes &amp; locks the invoice first, so the customer always receives the final version.</p>
+              </div>
+              <Button className="w-full" size="lg" onClick={() => askToSend('finalize')} disabled={!!busy || disabled} icon={<Send className="size-[18px]" />}>Finalize invoice</Button>
               <p className="flex items-start gap-2 text-xs leading-relaxed text-muted"><Lock className="mt-0.5 size-3.5 shrink-0" />Finalizing assigns the invoice number and locks the invoice. Drafts stay editable.</p>
             </div>
           </div>
         </aside>
       </div>
 
-      <ConfirmDialog open={confirmFinal} onClose={() => setConfirmFinal(false)} onConfirm={() => save(true)} loading={busy === 'final'} title="Finalize this invoice?" confirmLabel="Finalize & lock"
-        message={<>The invoice number <b>{profile.invoice_prefix}/{fy}/…</b> will be assigned and the invoice will be <b>locked</b> — it can no longer be edited (you can cancel it and issue a new one). Total: <b>{inr(totals.grand.toString())}</b>.</>} />
+      <ConfirmDialog open={confirm !== null} onClose={() => setConfirm(null)} onConfirm={() => save(true, confirm === 'whatsapp' || confirm === 'email' ? confirm : undefined)} loading={busy === 'final'}
+        title={confirm === 'whatsapp' ? 'Finalize and send on WhatsApp?' : confirm === 'email' ? 'Finalize and email this invoice?' : 'Finalize this invoice?'}
+        confirmLabel={confirm === 'whatsapp' ? 'Finalize & open WhatsApp' : confirm === 'email' ? 'Finalize & send email' : 'Finalize & lock'}
+        message={<>The invoice number <b>{profile.invoice_prefix}/{fy}/…</b> will be assigned and the invoice will be <b>locked</b> — it can no longer be edited (you can cancel it and issue a new one). Total: <b>{inr(totals.grand.toString())}</b>.
+          {confirm === 'whatsapp' && customer && <> WhatsApp will then open with a ready-to-send message for <b>{customer.name}</b> (<b>{customer.phone}</b>), including a link to the PDF.</>}
+          {confirm === 'email' && customer && <> The invoice PDF will then be emailed to <b>{customer.name}</b> at <b>{customer.email}</b>.</>}</>} />
       <CustomerModal customer={addCustomer ? 'new' : null} onClose={() => setAddCustomer(false)} onSaved={(c) => { setCustomer(c); setAddCustomer(false); qc.invalidateQueries({ queryKey: ['customers'] }); refreshUsage() }} />
     </>
   )

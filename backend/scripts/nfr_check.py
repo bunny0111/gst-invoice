@@ -87,7 +87,7 @@ r, ms = call("GET", "/api/invoices/summary/")
 check(f"Tab counts: {ms:.0f} ms (< 500 ms)", ms < 500)
 r, ms = call("GET", "/api/customers/")
 check(f"Customer list: {ms:.0f} ms (< 500 ms)", ms < 500)
-r, ms = call("POST", "/api/customers/", json={"name": "Perf Customer", "state": "DL"})
+r, ms = call("POST", "/api/customers/", json={"name": "Perf Customer", "state": "DL", "phone": "9800000000"})
 check(f"Create customer: {ms:.0f} ms (< 500 ms)", r.status_code in (201, 403) and ms < 500, f"HTTP {r.status_code}")
 finalized = s.get(f"{BASE}/api/invoices/?status=paid", headers={"Host": HOST}).json()["results"][0]
 paid_id = call("GET", "/api/invoices/?status=paid")[0].json()["results"][0]["id"]
