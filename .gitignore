@@ -14,3 +14,6 @@ backend/scripts/_sample_invoice.pdf
 # Product documents stay local (not pushed)
 *.docx
 *.pdf
+
+# Production values for Render (contains secrets)
+.env.render
