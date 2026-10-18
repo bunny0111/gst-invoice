@@ -186,10 +186,10 @@ function ProductModal({ product, onClose, onSaved }: { product: Product | 'new' 
         <Field label="Unit" error={errors.unit}><Select value={f.unit} onChange={set('unit')}>{meta?.units.map((u) => <option key={u.code} value={u.code}>{u.name} ({u.code})</option>)}</Select></Field>
         <Field label="Selling price" required error={errors.selling_price} hint="Excluding GST"><TextInput value={f.selling_price} onChange={(e) => set('selling_price')({ target: { value: e.target.value.replace(/[^\d.]/g, '') } })} inputMode="decimal" left="₹" className="num" invalid={!!errors.selling_price} /></Field>
         <Field label="GST rate" required error={errors.gst_rate}>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="GST rate">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" role="radiogroup" aria-label="GST rate">
             {[...(meta?.gst_rates ?? [0, 0.25, 3, 5, 18, 40]), ...(meta?.gst_rates?.includes(Number(f.gst_rate)) || !f.gst_rate ? [] : [Number(f.gst_rate)])].map((r) => (
               <button key={r} type="button" role="radio" aria-checked={f.gst_rate === String(r)} onClick={() => setF((p) => ({ ...p, gst_rate: String(r) }))}
-                className={clsx('h-11 min-w-[4.25rem] flex-1 rounded-xl border text-sm font-bold transition', f.gst_rate === String(r) ? 'gradient-brand border-transparent text-white shadow-md' : 'border-line-strong text-ink-2 hover:border-brand/50')}>{r}%</button>
+                className={clsx('h-11 min-w-0 rounded-xl border px-0 text-[13px] font-bold transition', f.gst_rate === String(r) ? 'gradient-brand border-transparent text-white shadow-md' : 'border-line-strong text-ink-2 hover:border-brand/50')}>{r}%</button>
             ))}
           </div>
         </Field>

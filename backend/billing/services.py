@@ -23,7 +23,7 @@ def business_snapshot(profile) -> dict:
         "state": profile.state, "state_name": STATE_NAMES.get(profile.state, ""),
         "address_line1": profile.address_line1, "address_line2": profile.address_line2,
         "city": profile.city, "pincode": profile.pincode, "phone": profile.phone, "email": profile.email,
-        "logo": profile.logo.name if profile.logo else None,
+        "logo": None, "logo_id": profile.logo_image_id,  # "logo" = legacy file name, only on older snapshots
         "bank_name": profile.bank_name, "account_holder_name": profile.account_holder_name,
         "account_number": profile.account_number, "ifsc_code": profile.ifsc_code,
     }

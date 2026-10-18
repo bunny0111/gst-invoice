@@ -12,7 +12,15 @@ from common.words import amount_in_words
 from .services import business_snapshot, customer_snapshot
 
 
-def _logo_data_uri(name: str | None) -> str | None:
+def _logo_data_uri(seller: dict) -> str | None:
+    from accounts.models import LogoImage
+
+    if seller.get("logo_id"):
+        image = LogoImage.objects.filter(pk=seller["logo_id"]).first()
+        if image:
+            return f"data:{image.content_type};base64,{base64.b64encode(bytes(image.data)).decode()}"
+        return None
+    name = seller.get("logo")  # legacy snapshot: a file under MEDIA_ROOT (may be gone on an ephemeral disk)
     if not name:
         return None
     try:
@@ -60,7 +68,7 @@ def render_invoice_pdf(invoice, profile) -> bytes:
         "seller_state_code": STATE_GST_CODES.get(seller.get("state"), ""),
         "buyer_state_code": STATE_GST_CODES.get(buyer.get("state"), ""),
         "pos_state_code": STATE_GST_CODES.get(invoice.place_of_supply, ""),
-        "logo": _logo_data_uri(seller.get("logo")),
+        "logo": _logo_data_uri(seller),
         "amount_in_words": amount_in_words(invoice.grand_total),
         "place_of_supply_name": STATE_NAMES.get(invoice.place_of_supply, ""),
         "is_intra": invoice.supply_type == "intrastate",
@@ -85,7 +93,7 @@ def render_receipt_pdf(payment, profile) -> bytes:
         "invoice": invoice,
         "seller": seller,
         "buyer": buyer,
-        "logo": _logo_data_uri(seller.get("logo")),
+        "logo": _logo_data_uri(seller),
         "amount_in_words": amount_in_words(payment.amount),
         "mode_label": dict(PAYMENT_MODES).get(payment.mode, payment.mode),
     })

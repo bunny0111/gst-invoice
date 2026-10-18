@@ -116,8 +116,25 @@ r = requests.post(f"{BASE}/api/profile/logo/", files={"logo": ("x.png", _gif.get
                   headers={"Host": A.host, "X-CSRFToken": A.s.cookies.get("csrftoken", "")}, cookies=A.s.cookies)
 check("GIF disguised as .png rejected (only PNG/JPG)", r.status_code == 400)
 logo_url = A.get("/api/profile/").json()["logo_url"]
-check("logo served from tenant A", A.get(logo_url).status_code == 200)
+_logo = A.get(logo_url)
+check("logo is stored in the database and served from tenant A", logo_url.startswith("/api/logo/") and _logo.status_code == 200
+      and _logo.headers["Content-Type"] == "image/png" and "immutable" in _logo.headers["Cache-Control"], logo_url)
 check("logo NOT served on tenant B's host", B.get(logo_url).status_code == 404)
+
+
+def upload_logo(raw, name="logo.png"):
+    return requests.post(f"{BASE}/api/profile/logo/", files={"logo": (name, raw, "image/png")},
+                         headers={"Host": A.host, "X-CSRFToken": A.s.cookies.get("csrftoken", "")}, cookies=A.s.cookies)
+
+
+_big = io.BytesIO(); Image.new("RGB", (2400, 1200), (20, 120, 60)).save(_big, "PNG")
+r = upload_logo(_big.getvalue(), "big.png")
+_shrunk = Image.open(io.BytesIO(A.get(r.json()["logo_url"]).content)) if r.status_code == 200 else None
+check("oversized logo is shrunk before storing (<= 800x400)", _shrunk is not None and _shrunk.size[0] <= 800 and _shrunk.size[1] <= 400,
+      str(_shrunk and _shrunk.size))
+r = upload_logo(png)
+check("original logo re-uploaded", r.status_code == 200)
+logo_url = r.json()["logo_url"]
 
 print("\n== 4. Customers & products (US-03, US-04)")
 def cust(name, state, gstin="", **kw): return A.post("/api/customers/", {"name": name, "state": state, "gstin": gstin, "phone": "9800000000", **kw})
@@ -196,6 +213,13 @@ check("finalize -> INV number in {PREFIX}/{FY}/001 (AC7)", r.status_code == 200 
 check("finalized status 'sent'", f1["status"] == "sent" and f1["amount_in_words"].startswith("Rupees"))
 check("finalized invoice is locked (AC8)", A.patch(f"/api/invoices/{inv1['id']}/", body(c_intra)).status_code == 409)
 check("finalized invoice cannot be deleted", A.delete(f"/api/invoices/{inv1['id']}/").status_code == 409)
+_issued_logo = A.get(f"/api/invoices/{inv1['id']}/").json()["bill_from"]["logo_url"]
+check("finalized invoice carries the logo it was issued with", _issued_logo == logo_url and A.get(_issued_logo).status_code == 200, str(_issued_logo))
+_other = io.BytesIO(); Image.new("RGB", (90, 90), (200, 30, 30)).save(_other, "PNG")
+_new_url = upload_logo(_other.getvalue(), "other.png").json()["logo_url"]
+check("replacing the logo gives a new url", _new_url != logo_url)
+check("...but the issued invoice still shows its original logo",
+      A.get(f"/api/invoices/{inv1['id']}/").json()["bill_from"]["logo_url"] == logo_url and A.get(logo_url).status_code == 200)
 f2 = A.post(f"/api/invoices/{inv2['id']}/finalize/").json()
 check("second invoice gets 002 (sequential)", f2["invoice_number"] == "TC/2026-27/002", f2.get("invoice_number"))
 A.patch("/api/profile/", {"state": "DL", "address_line1": "CHANGED ADDRESS"})

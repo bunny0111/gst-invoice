@@ -16,8 +16,22 @@ REQUIRED_FOR_INVOICES = ["business_name", "state", "address_line1", "city", "pin
 
 
 def logo_upload_path(instance, filename: str) -> str:
+    """Legacy (logos used to be files on disk). Kept only because migration 0001 refers to it."""
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
-    return f"business_logos/logo-{secrets.token_hex(6)}.{ext}"  # random name: never trust the upload's name
+    return f"business_logos/logo-{secrets.token_hex(6)}.{ext}"
+
+
+class LogoImage(models.Model):
+    """A business logo stored in the database. Rows are never edited: a new upload makes a new row, so an invoice
+    that was finalized with an earlier logo keeps showing exactly that one."""
+
+    data = models.BinaryField()
+    content_type = models.CharField(max_length=20, default="image/png")
+    sha256 = models.CharField(max_length=64, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"logo {self.pk} ({len(self.data) // 1024} KB)"
 
 
 class BusinessProfile(models.Model):
@@ -34,7 +48,7 @@ class BusinessProfile(models.Model):
     pincode = models.CharField(max_length=6, blank=True)
     phone = models.CharField(max_length=15, blank=True)
     email = models.EmailField(blank=True)
-    logo = models.ImageField(upload_to=logo_upload_path, null=True, blank=True)
+    logo_image = models.ForeignKey(LogoImage, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
 
     bank_name = models.CharField(max_length=100, blank=True)
     account_holder_name = models.CharField(max_length=150, blank=True)
@@ -50,6 +64,10 @@ class BusinessProfile(models.Model):
 
     def __str__(self) -> str:
         return self.business_name
+
+    @property
+    def logo_url(self) -> str | None:
+        return f"/api/logo/{self.logo_image_id}/" if self.logo_image_id else None
 
     @property
     def missing_fields(self) -> list[str]:

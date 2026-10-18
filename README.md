@@ -123,7 +123,7 @@ frontend/ src/pages (public, auth, app)  src/components  src/lib (api, GST mirro
 ```
 
 ## Known limits / next steps
-- Uploaded logos live on disk (`MEDIA_ROOT`); on Railway mount a Volume.
+- **Logos are stored in the database** (`accounts.LogoImage`, shrunk to <= 800x400 / ~250 KB on upload), so they survive redeploys on hosts with an ephemeral disk (Render free, Railway without a Volume). Each upload is a new immutable row, so a finalized invoice keeps the logo it was issued with. Nothing else is uploaded to disk today; invoice PDFs are generated on the fly from the stored invoice data.
 - `nixpacks.toml` is a starting point for Railway and has not been deployed.
 - Production subdomains need wildcard DNS + a wildcard TLS certificate for `*.app.techcognixium.com`.
 - Phase 2 (sharing, reminders, GSTR-1, multi-user) is intentionally not built. Note `BusinessProfile` is one-per-user (per PRD AC7); multi-user will need it per-tenant.

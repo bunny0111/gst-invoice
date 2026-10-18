@@ -6,7 +6,10 @@ from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.views.decorators.http import require_GET
 from rest_framework import serializers
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
@@ -16,7 +19,8 @@ from rest_framework.views import APIView
 
 from common.api import ApiError, CsrfProtectedMixin
 
-from .models import BusinessProfile, PasswordResetOTP
+from .logo import store_logo
+from .models import BusinessProfile, LogoImage, PasswordResetOTP
 from .serializers import BusinessProfileSerializer, validate_logo_file
 
 log = logging.getLogger(__name__)
@@ -37,7 +41,7 @@ def me_payload(request) -> dict:
         "business": {"name": tenant.name, "slug": tenant.slug, "plan": tenant.effective_plan},
         "profile_complete": profile.is_complete,
         "missing_fields": profile.missing_fields,
-        "logo_url": f"/media/{profile.logo.name}" if profile.logo else None,
+        "logo_url": profile.logo_url,
         "business_name": profile.business_name,
     }
 
@@ -156,13 +160,29 @@ class LogoView(APIView):
             validate_logo_file(upload)
         except serializers.ValidationError as exc:
             raise serializers.ValidationError({"logo": exc.detail})
+        try:
+            image = store_logo(upload)  # shrunk, saved in the tenant's own database schema
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError({"logo": exc.detail})
         profile = get_profile(request.user)
-        profile.logo = upload  # stored under MEDIA_ROOT/<schema>/business_logos/ (tenant isolated)
-        profile.save(update_fields=["logo", "updated_at"])
+        profile.logo_image = image
+        profile.save(update_fields=["logo_image", "updated_at"])
         return Response(BusinessProfileSerializer(profile).data)
 
     def delete(self, request):
+        # the LogoImage row stays: invoices finalized with this logo keep showing it
         profile = get_profile(request.user)
-        profile.logo = None
-        profile.save(update_fields=["logo", "updated_at"])
+        profile.logo_image = None
+        profile.save(update_fields=["logo_image", "updated_at"])
         return Response(BusinessProfileSerializer(profile).data)
+
+
+@require_GET
+def logo_image(request, pk: int):
+    """Serve a stored logo. Looked up in the CURRENT tenant's schema only, so another business's logo is a 404.
+    A row never changes, so browsers may cache it forever (a new upload gets a new id and a new URL)."""
+    image = get_object_or_404(LogoImage, pk=pk)
+    response = HttpResponse(bytes(image.data), content_type=image.content_type)
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response

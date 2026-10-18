@@ -248,8 +248,11 @@ class InvoiceDetailSerializer(InvoiceListSerializer):
         snap = obj.business_snapshot
         if snap is None:  # draft: show live profile
             snap = business_snapshot(self.context["profile"])
-        logo = snap.get("logo")
-        return {**snap, "logo_url": f"/media/{logo}" if logo else None}
+        if snap.get("logo_id"):
+            logo_url = f"/api/logo/{snap['logo_id']}/"
+        else:  # snapshots from before logos moved into the database
+            logo_url = f"/media/{snap['logo']}" if snap.get("logo") else None
+        return {**snap, "logo_url": logo_url}
 
     def get_bill_to(self, obj):
         return obj.customer_snapshot or customer_snapshot(obj.customer)

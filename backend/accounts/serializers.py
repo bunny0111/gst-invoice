@@ -26,7 +26,7 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_logo_url(self, obj):
-        return f"/media/{obj.logo.name}" if obj.logo else None
+        return obj.logo_url
 
     # --- AC2 / AC3: GSTIN and PAN are auto-uppercased and length checked
     def validate_gstin(self, value):

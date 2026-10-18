@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/auth/reset-password/", views.ResetPasswordView.as_view()),
     path("api/profile/", views.ProfileView.as_view()),
     path("api/profile/logo/", views.LogoView.as_view()),
+    path("api/logo/<int:pk>/", views.logo_image),
 ]
