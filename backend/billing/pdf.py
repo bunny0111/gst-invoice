@@ -6,7 +6,7 @@ from django.core.files.storage import default_storage
 from django.template.loader import render_to_string
 
 from common.api import ApiError
-from common.gst import PAYMENT_MODES, STATE_NAMES
+from common.gst import PAYMENT_MODES, STATE_GST_CODES, STATE_NAMES
 from common.words import amount_in_words
 
 from .services import business_snapshot, customer_snapshot
@@ -24,6 +24,23 @@ def _logo_data_uri(name: str | None) -> str | None:
     return f"data:{mime};base64,{base64.b64encode(data).decode()}"
 
 
+def _tax_summary(items) -> list[dict]:
+    """One row per GST rate: taxable value and the CGST/SGST/IGST on it (the HSN-wise tax box)."""
+    rows: dict = {}
+    for it in items:
+        r = rows.setdefault(it.gst_rate, {"rate": it.gst_rate, "taxable": 0, "cgst": 0, "sgst": 0, "igst": 0})
+        r["taxable"] += it.taxable_amount
+        r["cgst"] += it.cgst_amount
+        r["sgst"] += it.sgst_amount
+        r["igst"] += it.igst_amount
+    return [rows[k] for k in sorted(rows)]
+
+
+def _payment_terms(invoice) -> str:
+    days = (invoice.due_date - invoice.invoice_date).days if invoice.due_date and invoice.invoice_date else 0
+    return "Due on receipt" if days <= 0 else f"Net {days} days"
+
+
 def render_invoice_pdf(invoice, profile) -> bytes:
     try:
         from weasyprint import HTML
@@ -32,11 +49,17 @@ def render_invoice_pdf(invoice, profile) -> bytes:
 
     seller = invoice.business_snapshot or business_snapshot(profile)
     buyer = invoice.customer_snapshot or customer_snapshot(invoice.customer)
+    items = list(invoice.items.all())
     html = render_to_string("billing/invoice_pdf.html", {
         "invoice": invoice,
-        "items": invoice.items.all(),
+        "items": items,
+        "tax_summary": _tax_summary(items),
+        "payment_terms": _payment_terms(invoice),
         "seller": seller,
         "buyer": buyer,
+        "seller_state_code": STATE_GST_CODES.get(seller.get("state"), ""),
+        "buyer_state_code": STATE_GST_CODES.get(buyer.get("state"), ""),
+        "pos_state_code": STATE_GST_CODES.get(invoice.place_of_supply, ""),
         "logo": _logo_data_uri(seller.get("logo")),
         "amount_in_words": amount_in_words(invoice.grand_total),
         "place_of_supply_name": STATE_NAMES.get(invoice.place_of_supply, ""),

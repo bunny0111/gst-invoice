@@ -129,6 +129,9 @@ if os.environ.get("DATABASE_URL"):  # Railway style connection string
         NAME=_u.path.lstrip("/"), USER=_u.username, PASSWORD=_up.unquote(_u.password or ""),
         HOST=_u.hostname, PORT=str(_u.port or 5432),
     )
+    _sslmode = _up.parse_qs(_u.query).get("sslmode", [""])[0]  # Neon / Render need sslmode=require
+    if _sslmode:
+        DATABASES["default"]["OPTIONS"] = {"sslmode": _sslmode}
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
