@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
 import { CheckCircle2 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Logo, ThemeToggle } from '@/components/ui/Bits'
+import { Logo, PoweredBy, ThemeToggle } from '@/components/ui/Bits'
+import { InstallApp } from '@/components/ui/InstallApp'
 import { useTenantInfo } from '@/lib/hooks'
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
@@ -22,13 +23,15 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             ))}
           </ul>
         </div>
-        <p className="relative text-sm text-white/60">© {new Date().getFullYear()} Tech Cognixium</p>
+        <p className="relative text-sm text-white/60">© {new Date().getFullYear()} GST Billing · <PoweredBy light className="!text-sm" /></p>
       </aside>
       <main className="relative grid place-items-center px-5 py-12 sm:px-10">
         <ThemeToggle className="absolute right-5 top-5" />
         <div className="w-full max-w-md">
           <div className="mb-10 lg:hidden"><Logo /></div>
           {children}
+          <InstallApp className="mt-6" />
+          <p className="mt-10 text-center lg:hidden"><PoweredBy /></p>
         </div>
       </main>
     </div>

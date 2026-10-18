@@ -7,6 +7,7 @@ urlpatterns = [
     path("api/tenant/", views.tenant_info),
     path("api/plans/", views.plans),
     path("api/meta/", views.meta),
+    path("api/manifest.webmanifest", views.web_manifest),
     path("robots.txt", views.robots_txt),
     path("sitemap.xml", views.sitemap_xml),
 ]

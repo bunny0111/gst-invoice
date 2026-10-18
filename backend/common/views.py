@@ -4,9 +4,10 @@ from pathlib import Path
 from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
 from django.core.files.storage import default_storage
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET
 from django_tenants.utils import get_public_schema_name
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny
@@ -87,6 +88,37 @@ def sitemap_xml(request):
     entries = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
     xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{entries}</urlset>'
     return HttpResponse(xml, content_type="application/xml")
+
+
+@require_GET
+def web_manifest(request):
+    """The PWA manifest, per host: a business workspace installs as ITS OWN app (its name, opens straight at its
+    login / dashboard), while the public site installs as a generic "GST Billing" that opens the workspace finder."""
+    icons = [
+        {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+        {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+        {"src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+    ]
+    if is_public(request):
+        data = {"name": "GST Billing by Tech Cognixium", "short_name": "GST Billing", "start_url": "/login", "shortcuts": []}
+    else:
+        name = request.tenant.name
+        data = {
+            "name": f"{name} · GST Billing", "short_name": name[:12].strip() or "GST Billing", "start_url": "/",
+            "shortcuts": [
+                {"name": "New invoice", "url": "/invoices/new", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
+                {"name": "Payment details", "url": "/payments", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
+                {"name": "Customers", "url": "/customers", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
+            ],
+        }
+    data.update({
+        "id": "/", "scope": "/", "display": "standalone", "lang": "en-IN",
+        "description": "GST invoicing & billing for small businesses — CGST/SGST/IGST invoices, PDFs and payment tracking.",
+        "background_color": "#f6f5fc", "theme_color": "#4f3fe0", "categories": ["business", "finance"], "icons": icons,
+    })
+    response = JsonResponse(data, content_type="application/manifest+json")
+    response["Cache-Control"] = "public, max-age=3600"
+    return response
 
 
 def serve_media(request, path: str):

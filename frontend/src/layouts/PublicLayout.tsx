@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Logo, ThemeToggle } from '@/components/ui/Bits'
+import { Logo, PoweredBy, ThemeToggle } from '@/components/ui/Bits'
 import { LinkButton } from '@/components/ui/Button'
 
 const LINKS = [
@@ -50,7 +50,7 @@ export default function PublicLayout() {
           </nav>
           <div className="flex items-center gap-2.5">
             <ThemeToggle className="hidden sm:grid" />
-            <LinkButton to="/login" variant="ghost" size="sm" className="hidden sm:inline-flex">Log in</LinkButton>
+            <LinkButton to="/login" variant="ghost" size="sm" className="max-sm:!hidden">Log in</LinkButton>
             <LinkButton to="/register" size="sm">Start free</LinkButton>
             <button onClick={() => setOpen((o) => !o)} aria-label="Menu" className="grid size-10 place-items-center rounded-xl border border-line bg-surface md:hidden">
               {open ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -87,14 +87,14 @@ export default function PublicLayout() {
             <h4 className="text-sm font-bold text-ink">Contact</h4>
             <ul className="mt-4 space-y-2.5 text-sm text-muted">
               <li>info@techcognixium.com</li>
-              <li>techcognixium.com</li>
+              <li><a href="https://techcognixium.com/" target="_blank" rel="noopener noreferrer" className="-my-1 inline-block py-2 hover:text-brand-ink hover:underline">techcognixium.com</a></li>
               <li>New Delhi, India</li>
             </ul>
           </div>
         </div>
         <div className="border-t border-line">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-[13px] text-muted sm:px-8">
-            <span>© {new Date().getFullYear()} Tech Cognixium. Made with care in India 🇮🇳</span>
+            <span>© {new Date().getFullYear()} GST Billing · <PoweredBy className="!text-[13px]" /> · Made with care in India 🇮🇳</span>
             <span>Your data is stored in a private, isolated schema — never mixed with anyone else's.</span>
           </div>
         </div>

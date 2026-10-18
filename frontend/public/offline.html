@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#4f3fe0">
+<title>You're offline · GST Billing</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f6f5fc;color:#1e1b3a;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center}
+  .card{max-width:380px}
+  img{width:84px;height:84px;border-radius:22px;box-shadow:0 14px 30px -12px rgba(76,56,214,.6)}
+  h1{font-size:24px;margin:22px 0 8px}
+  p{margin:0 0 24px;color:#6b6890;line-height:1.55}
+  button{height:48px;padding:0 28px;border:0;border-radius:14px;background:linear-gradient(135deg,#7a68ff,#4230c9);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+  @media (prefers-color-scheme:dark){body{background:#100c2b;color:#f1efff}p{color:#a9a5d1}}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img src="/icon-192.png" alt="">
+    <h1>You're offline</h1>
+    <p>GST Billing needs an internet connection to load your invoices and keep them safe. Check your connection and try again — nothing you've saved is lost.</p>
+    <button onclick="location.reload()">Try again</button>
+  </div>
+</body>
+</html>

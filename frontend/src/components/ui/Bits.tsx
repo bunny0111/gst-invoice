@@ -1,28 +1,66 @@
 import clsx from 'clsx'
 import { motion } from 'framer-motion'
 import {
-  AlertCircle, Ban, CheckCircle2, ChevronLeft, ChevronRight, FilePen, Loader2, Moon, PieChart, ReceiptIndianRupee,
+  AlertCircle, Ban, CheckCircle2, ChevronLeft, ChevronRight, FilePen, Loader2, Moon, PieChart,
   Send, Sparkles, Sun, TrendingUp,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '@/lib/theme'
 import type { InvoiceStatus, Plan } from '@/lib/types'
 import { LinkButton } from './Button'
 
+/** The GST Billing mark: a tear-off receipt with a rupee sign and a "paid" tick. Same artwork as public/favicon.svg. */
+export function LogoMark({ className }: { className?: string }) {
+  const id = useId().replace(/:/g, '')
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={`${id}bg`} x1="6" y1="2" x2="44" y2="46" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#8f80ff" /><stop offset="0.55" stopColor="#5b47ee" /><stop offset="1" stopColor="#3a2cc0" />
+        </linearGradient>
+        <radialGradient id={`${id}sh`} cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(12 6) rotate(48) scale(34)">
+          <stop offset="0" stopColor="#fff" stopOpacity=".34" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="48" height="48" rx="13" fill={`url(#${id}bg)`} />
+      <rect width="48" height="48" rx="13" fill={`url(#${id}sh)`} />
+      <path d="M14 8.5h20a2 2 0 0 1 2 2V37l-3 3-3-3-3 3-3-3-3 3-3-3-3 3-3-3V10.5a2 2 0 0 1 2-2z" fill="#fff" />
+      <g stroke="#4a37dc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18.5 15.5h11" /><path d="M18.5 20h11" /><path d="M20 15.5h3.6a4.3 4.3 0 0 1 0 8.6H20" /><path d="M20 24.1l7.4 8.4" />
+      </g>
+      <circle cx="35.5" cy="35.5" r="7.5" fill="#ffb84d" stroke="#fff" strokeWidth="2.4" />
+      <path d="M32 35.6l2.4 2.5 4.3-4.9" stroke="#3a2600" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function Logo({ compact, light }: { compact?: boolean; light?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2.5">
-      <span className="gradient-brand relative grid size-9 place-items-center rounded-xl shadow-[0_6px_16px_-6px_rgb(91_69_240/0.8)]">
-        <ReceiptIndianRupee className="size-5 text-white" strokeWidth={2.2} />
-        <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-[#ffb84d] ring-2 ring-white/90 dark:ring-[#17142e]" />
-      </span>
+      <LogoMark className="size-9 shrink-0 drop-shadow-[0_6px_12px_rgba(76,56,214,0.35)] sm:size-10" />
       {!compact && (
-        <span className="leading-none">
-          <span className={clsx('block font-display text-[17px] font-extrabold tracking-tight', light ? 'text-white' : 'text-ink')}>GST Billing</span>
-          <span className={clsx('mt-0.5 block text-[10.5px] font-semibold uppercase tracking-[0.14em]', light ? 'text-white/60' : 'text-muted')}>by Tech Cognixium</span>
+        <span className="whitespace-nowrap leading-none">
+          <span className="block font-display text-[17px] font-extrabold tracking-tight sm:text-[18px]">
+            <span className={light ? 'text-white' : 'text-ink'}>GST</span>{' '}
+            <span className={light ? 'text-[#ffcf7a]' : 'text-brand'}>Billing</span>
+          </span>
+          <span className={clsx('mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] sm:text-[10.5px] sm:tracking-[0.14em]', light ? 'text-white/60' : 'text-muted')}>by Tech Cognixium</span>
         </span>
       )}
+    </span>
+  )
+}
+
+/** "Powered by Tech Cognixium" - the company name links to the company site in a new tab. */
+export function PoweredBy({ className, light }: { className?: string; light?: boolean }) {
+  return (
+    <span className={clsx('text-xs', light ? 'text-white/55' : 'text-muted', className)}>
+      Powered by{' '}
+      <a href="https://techcognixium.com/" target="_blank" rel="noopener noreferrer"
+        className={clsx('-my-2 inline-block py-2.5 font-bold underline-offset-2 hover:underline', light ? 'text-white/90 hover:text-white' : 'text-brand-ink')}>
+        Tech Cognixium
+      </a>
     </span>
   )
 }

@@ -94,6 +94,17 @@ deliberately **never indexed** — only the public marketing site (landing + reg
   (receipt PDF `PR-xxxxx`). Undoing a payment always asks for confirmation first. Editing re-checks the invoice can't be over-paid and recomputes its status.
 - Plan gating is **not** applied to sharing yet (the pricing table still lists it as Starter/Pro) - one line in `InvoiceViewSet.share/send_email` if you want it.
 
+## Install as an app (PWA)
+
+The site installs to a phone / desktop home screen and opens like an app (no browser bar, no typing the address).
+- **Per business:** `/api/manifest.webmanifest` is served per host, so a workspace (`sharma.app.techcognixium.com`) installs as *its own* app
+  with its own name and opens straight at its login / dashboard. The public site installs as a generic "GST Billing" opening the workspace finder.
+- **Install button** (`components/ui/InstallApp.tsx`): one tap on Android / desktop Chrome (`beforeinstallprompt`); step-by-step help on iPhone (Safari has no prompt).
+- **Service worker** (`public/sw.js`) is deliberately tiny: it makes the app installable and shows `offline.html` when there is no connection.
+  It never caches API calls, PDFs, share links or page HTML (private, per-business data); only the hashed `/assets/*` build files are cached.
+- Needs HTTPS (Render provides it) or `localhost`. Icons: `public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`.
+- A Play-Store APK is **not** built: a Trusted Web Activity is tied to one origin, and every business here has its own subdomain.
+
 ## PRD coverage (Phase 1)
 
 All of: US-01 registration/tenancy · US-02 profile · US-03 customers · US-04 catalogue · US-05 invoices · US-06 PDF · US-07 payments · US-08 dashboard · §6 plan limits · Razorpay subscriptions · §7 non-functional requirements. Plus login/logout and email-OTP password reset from the original roadmap doc, and subscription receipts.
