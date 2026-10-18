@@ -169,7 +169,7 @@ export default function InvoiceEditor() {
 
   return (
     <>
-      <Link to={editing ? `/invoices/${id}` : '/invoices'} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-brand-ink"><ArrowLeft className="size-4" />{editing ? 'Back to invoice' : 'All invoices'}</Link>
+      <Link to={editing ? `/invoices/${id}` : '/invoices'} className="mb-2 inline-flex items-center gap-1.5 py-2 text-sm font-semibold text-muted hover:text-brand-ink"><ArrowLeft className="size-4" />{editing ? 'Back to invoice' : 'All invoices'}</Link>
       <PageHeader title={editing ? 'Edit draft invoice' : 'New invoice'} subtitle={<>Invoice number is assigned when you finalize — format <b className="num text-ink-2">{profile.invoice_prefix}/{fy}/001</b></>} />
 
       <div className="mb-6 space-y-4">
@@ -241,7 +241,7 @@ export default function InvoiceEditor() {
                     <motion.div key={r.key} layout initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                       <div className={clsx('rounded-2xl border bg-surface-2 p-4', rowErrors[i] ? 'border-crit/60' : 'border-line')}>
                         <div className="mb-3 flex items-center justify-between"><span className="grid size-6 place-items-center rounded-full bg-brand-soft text-xs font-bold text-brand-ink">{i + 1}</span>
-                          <button type="button" onClick={() => setRows((rs) => (rs.length > 1 ? rs.filter((x) => x.key !== r.key) : [blank()]))} aria-label={`Remove item ${i + 1}`} className="rounded-lg p-1.5 text-muted hover:bg-crit-soft hover:text-crit-ink"><Trash2 className="size-4" /></button></div>
+                          <button type="button" onClick={() => setRows((rs) => (rs.length > 1 ? rs.filter((x) => x.key !== r.key) : [blank()]))} aria-label={`Remove item ${i + 1}`} className="rounded-lg p-2.5 text-muted hover:bg-crit-soft hover:text-crit-ink"><Trash2 className="size-4" /></button></div>
                         <div className="grid grid-cols-2 gap-3 md:grid-cols-6 xl:grid-cols-12">
                           <div className="col-span-2 md:col-span-4 xl:col-span-5"><label className="mb-1 block text-xs font-semibold text-muted">Item name</label>
                             <input value={r.item_name} onChange={(e) => patchRow(r.key, { item_name: e.target.value })} placeholder="What are you selling?" className={clsx(inputCls, 'h-10')} /></div>
@@ -256,7 +256,7 @@ export default function InvoiceEditor() {
                           <div className="col-span-1 md:col-span-2 xl:col-span-4"><label className="mb-1 block text-xs font-semibold text-muted">Discount %</label>
                             <input value={r.discount_percent} onChange={(e) => patchRow(r.key, { discount_percent: num(e.target.value) })} inputMode="decimal" className={clsx(inputCls, 'num h-10')} /></div>
                           <div className="col-span-1 md:col-span-2 xl:col-span-4"><label className="mb-1 block text-xs font-semibold text-muted">GST rate</label>
-                            <Select value={r.gst_rate} onChange={(e) => patchRow(r.key, { gst_rate: e.target.value })} className="!h-10">{(meta?.gst_rates ?? [0, 5, 12, 18, 28]).map((g) => <option key={g} value={g}>{g}%</option>)}</Select></div>
+                            <Select value={r.gst_rate} onChange={(e) => patchRow(r.key, { gst_rate: e.target.value })} className="!h-10">{[...(meta?.gst_rates ?? [0, 0.25, 3, 5, 18, 40]), ...(meta?.gst_rates?.includes(Number(r.gst_rate)) ? [] : [Number(r.gst_rate)])].map((g) => <option key={g} value={g}>{g}%</option>)}</Select></div>
                           <div className="col-span-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl bg-surface px-4 py-2.5 md:col-span-6 xl:col-span-12">
                             <div className="text-xs text-muted">Taxable <b className="num text-ink-2">{inrPlain(line?.taxable.toString())}</b>{supply !== 'export' && <> · Tax <b className="num text-ink-2">{inrPlain(line?.cgst.add(line.sgst).add(line.igst).toString())}</b></>}</div>
                             <div className="num font-display text-base font-extrabold text-ink">{inr(line?.total.toString())}</div>

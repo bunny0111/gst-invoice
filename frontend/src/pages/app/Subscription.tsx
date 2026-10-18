@@ -128,13 +128,13 @@ export default function Subscription() {
       <section className="card mt-8 overflow-hidden">
         <div className="border-b border-line px-6 py-4"><h3 className="font-display text-base font-bold text-ink">Compare plans</h3></div>
         <div className="overflow-x-auto scroll-thin">
-          <table className="w-full min-w-[600px] text-left text-sm">
-            <thead><tr className="border-b border-line bg-surface-2 text-[12px] font-bold uppercase tracking-wider text-muted"><th className="px-6 py-3.5">Feature</th>{sub.plans.map((p) => <th key={p.key} className={clsx('px-3 text-center', p.key === sub.plan && 'text-brand-ink')}>{p.name}</th>)}</tr></thead>
+          <table className="w-full table-fixed text-left sm:table-auto text-[12.5px] sm:text-sm">
+            <thead><tr className="border-b border-line bg-surface-2 text-[10.5px] font-bold uppercase tracking-normal text-muted sm:text-[12px] sm:tracking-wider"><th className="w-[34%] px-3 py-3.5 sm:w-auto sm:px-6">Feature</th>{sub.plans.map((p) => <th key={p.key} className={clsx('px-0.5 text-center sm:px-3', p.key === sub.plan && 'text-brand-ink')}>{p.name}</th>)}</tr></thead>
             <tbody>
               {sub.comparison.map((row) => (
                 <tr key={row.feature} className="border-b border-line last:border-0">
-                  <td className="px-6 py-3.5 font-semibold text-ink-2">{row.feature}{row.soon && <span className="ml-2 rounded-full bg-warn-soft px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-warn-ink">Coming soon</span>}</td>
-                  {(['free', 'starter', 'pro'] as const).map((k) => <td key={k} className={clsx('px-3 text-center', k === sub.plan && 'bg-brand-soft/50')}>{row[k] === true ? <Check className="mx-auto size-[18px] text-good-ink" strokeWidth={3} /> : row[k] === false ? <Minus className="mx-auto size-4 text-muted/60" /> : <span className="text-[13px] font-semibold text-ink-2">{row[k]}</span>}</td>)}
+                  <td className="px-3 py-3 font-semibold text-ink-2 sm:px-6 sm:py-3.5">{row.feature}{row.soon && <span className="ml-2 rounded-full bg-warn-soft px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-warn-ink">Coming soon</span>}</td>
+                  {(['free', 'starter', 'pro'] as const).map((k) => <td key={k} className={clsx('px-0.5 text-center sm:px-3', k === sub.plan && 'bg-brand-soft/50')}>{row[k] === true ? <Check className="mx-auto size-[18px] text-good-ink" strokeWidth={3} /> : row[k] === false ? <Minus className="mx-auto size-4 text-muted/60" /> : <span className="text-[12px] font-semibold text-ink-2 sm:text-[13px]">{row[k]}</span>}</td>)}
                 </tr>
               ))}
             </tbody>

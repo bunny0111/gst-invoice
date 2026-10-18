@@ -239,7 +239,7 @@ function GstCalculator() {
             <div>
               <p className="mb-2 text-[13px] font-semibold text-ink-2">GST rate</p>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="GST rate">
-                {[0, 5, 12, 18, 28].map((x) => (
+                {[0, 5, 18, 40].map((x) => (
                   <button key={x} role="radio" aria-checked={rate === x} onClick={() => setRate(x)} className={clsx('h-11 min-w-16 rounded-xl border px-4 text-sm font-bold transition', rate === x ? 'gradient-brand border-transparent text-white shadow-md' : 'border-line-strong bg-surface text-ink-2 hover:border-brand/50')}>{x}%</button>
                 ))}
               </div>
@@ -423,7 +423,7 @@ const FAQS = [
   ['Do I need accounting knowledge?', 'No. You enter what you sold and to whom. We work out CGST, SGST or IGST, the round-off and the amount in words. Just double-check your GSTIN and HSN codes.'],
   ['How is my data kept private?', 'Every business gets its own isolated PostgreSQL schema and its own subdomain (yourname.app…). Your invoices are never stored alongside anyone else\'s.'],
   ['Can I edit an invoice after finalizing?', 'Finalized invoices are locked so they always match what your customer received. You can cancel one and issue a corrected invoice. Drafts are fully editable.'],
-  ['Which GST rates are supported?', 'The slabs 0%, 5%, 12%, 18% and 28% — with intra-state (CGST + SGST), inter-state (IGST), exempt and export / SEZ zero-rated supplies.'],
+  ['Which GST rates are supported?', 'The current slabs — 0%, 5%, 18% and 40% (after the 22 Sep 2025 GST reform), plus the special 0.25% and 3% rates — with intra-state (CGST + SGST), inter-state (IGST), exempt and export / SEZ zero-rated supplies.'],
   ['Can I send invoices on WhatsApp or email?', 'Yes. Send any invoice to your customer straight from the app — on WhatsApp with a ready-to-send message and a link to the PDF, or by email with the PDF attached. Automated reminders, expense tracking and GSTR-1 export are planned for the next release.'],
 ]
 function Faq() {

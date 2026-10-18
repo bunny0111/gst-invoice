@@ -213,3 +213,35 @@ class SharingTests(SimpleTestCase):
         self.assertNotIn(" ", url)
         self.assertNotIn("\n", url)
         self.assertIn("%26", url)  # the ampersand is escaped, not treated as a new query parameter
+
+
+class GstSlabTests(SimpleTestCase):
+    """GST 2.0 (22 Sep 2025): 12% and 28% are gone for new invoices but stay readable for older ones."""
+
+    def test_current_slabs(self):
+        from common.gst import GST_RATES
+        self.assertEqual([int(r) if r % 1 == 0 else float(r) for r in GST_RATES], [0, 0.25, 3, 5, 18, 40])
+
+    def test_legacy_slabs_only_before_cutover(self):
+        from datetime import date
+        from common.gst import rates_allowed_on
+        self.assertIn(Decimal("12"), rates_allowed_on(date(2025, 9, 21)))
+        self.assertIn(Decimal("28"), rates_allowed_on(date(2025, 9, 21)))
+        for d in (date(2025, 9, 22), date(2026, 10, 18)):
+            self.assertNotIn(Decimal("12"), rates_allowed_on(d))
+            self.assertNotIn(Decimal("28"), rates_allowed_on(d))
+            self.assertIn(Decimal("40"), rates_allowed_on(d))
+
+    def test_field_validator_and_labels(self):
+        from rest_framework import serializers
+        from billing.serializers import validate_gst_rate
+        from common.gst import rate_label
+        for ok in ("0", "0.25", "3", "5", "18", "40", "12", "28"):
+            validate_gst_rate(ok)
+        with self.assertRaises(serializers.ValidationError):
+            validate_gst_rate("7")
+        self.assertEqual([rate_label(r) for r in ("18", "0.25", "40.00")], ["18%", "0.25%", "40%"])
+
+    def test_40_percent_split(self):
+        r = calc.calculate_line("1", "1000", "0", "40", "intrastate")
+        self.assertEqual((r.cgst_amount, r.sgst_amount, r.line_total), (Decimal("200.00"), Decimal("200.00"), Decimal("1400.00")))

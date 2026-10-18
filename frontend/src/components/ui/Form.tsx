@@ -8,7 +8,7 @@ import {
 import { useDebounce } from '@/lib/hooks'
 
 export const inputCls =
-  'w-full rounded-xl border border-line-strong bg-surface px-3.5 text-sm text-ink placeholder:text-muted/80 ' +
+  'w-full rounded-xl border border-line-strong bg-surface px-3.5 text-base text-ink sm:text-sm placeholder:text-muted/80 ' +
   'transition-[border-color,box-shadow] duration-150 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15 ' +
   'disabled:bg-surface-2 disabled:text-muted'
 

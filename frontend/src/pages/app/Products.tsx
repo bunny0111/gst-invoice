@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { Package, Pencil, Plus, RotateCcw, Trash2, Wrench } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
+import { mobileAct, mobileActDanger } from '@/components/ui/mobile'
 import { EmptyState, PageHeader, Pagination, Skeleton, UpgradePrompt } from '@/components/ui/Bits'
 import { Button, IconButton } from '@/components/ui/Button'
 import { Field, SearchInput, Select, Textarea, TextInput } from '@/components/ui/Form'
@@ -61,9 +62,9 @@ export default function Products() {
 
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
-          <SearchInput value={q} onChange={setQ} placeholder="Search by name or HSN/SAC code" className="min-w-64 flex-1" />
-          <Select value={type} onChange={(e) => setType(e.target.value)} className="!w-36" aria-label="Type"><option value="">All types</option><option value="goods">Goods</option><option value="service">Services</option></Select>
-          <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="!w-36" aria-label="Status"><option value="active">Active</option><option value="inactive">Removed</option><option value="all">All</option></Select>
+          <SearchInput value={q} onChange={setQ} placeholder="Search name or HSN/SAC" className="w-full min-w-0 sm:min-w-64 sm:flex-1" />
+          <Select value={type} onChange={(e) => setType(e.target.value)} className="!w-[calc(50%-0.375rem)] sm:!w-36" aria-label="Type"><option value="">All types</option><option value="goods">Goods</option><option value="service">Services</option></Select>
+          <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="!w-[calc(50%-0.375rem)] sm:!w-36" aria-label="Status"><option value="active">Active</option><option value="inactive">Removed</option><option value="all">All</option></Select>
         </div>
 
         {list.isLoading ? (
@@ -72,7 +73,33 @@ export default function Products() {
           <EmptyState icon={<Package className="size-8" />} title={dq ? 'No matching items' : 'Your catalogue is empty'} message={dq ? 'Try another name or HSN/SAC code.' : 'Add what you sell once — with its HSN/SAC code and GST rate — and reuse it on every invoice.'}
             action={!dq && !atLimit && <Button onClick={() => setEditing('new')} icon={<Plus className="size-4" />}>Add your first item</Button>} />
         ) : (
-          <div className={clsx('overflow-x-auto scroll-thin transition-opacity', list.isPlaceholderData && 'opacity-60')}>
+          <>
+          <ul className={clsx('divide-y divide-line md:hidden', list.isPlaceholderData && 'opacity-60')}>
+            {rows.map((p) => (
+              <li key={p.id} className={clsx('px-4 py-4', !p.is_active && 'opacity-60')}>
+                <div className="flex items-start gap-3">
+                  <span className={clsx('grid size-10 shrink-0 place-items-center rounded-xl', p.item_type === 'goods' ? 'bg-brand-soft text-brand' : 'bg-info-soft text-info-ink')}>{p.item_type === 'goods' ? <Package className="size-[18px]" /> : <Wrench className="size-[18px]" />}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink">{p.name}</p>
+                    <p className="line-clamp-2 text-xs text-muted">{p.description || (p.item_type === 'goods' ? 'Goods' : 'Service')}</p>
+                  </div>
+                  <span className="num shrink-0 rounded-md bg-brand-soft px-2 py-1 text-xs font-bold text-brand-ink">{trimZero(p.gst_rate)}%</span>
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-x-4 text-xs">
+                  <div><dt className="text-muted">Price</dt><dd className="num font-bold text-ink">{inr(p.selling_price)}</dd></div>
+                  <div><dt className="text-muted">HSN / SAC</dt><dd className="num font-medium text-ink-2">{p.hsn_sac_code || '—'}</dd></div>
+                  <div><dt className="text-muted">Unit</dt><dd className="font-medium text-ink-2">{p.unit}</dd></div>
+                </dl>
+                <div className="mt-3 flex gap-2">
+                  {p.is_active ? (<>
+                    <button onClick={() => setEditing(p)} className={mobileAct}><Pencil className="size-4 shrink-0" />Edit</button>
+                    <button onClick={() => setRemoving(p)} className={mobileActDanger}><Trash2 className="size-4 shrink-0" />Remove</button>
+                  </>) : <button onClick={() => restore.mutate(p)} className={mobileAct}><RotateCcw className="size-4 shrink-0" />Restore</button>}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity md:block', list.isPlaceholderData && 'opacity-60')}>
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-3.5">Item</th><th className="px-3">HSN / SAC</th><th className="px-3">Unit</th><th className="px-3 text-right">Price</th><th className="px-3 text-right">GST</th><th className="px-5" />
@@ -96,6 +123,7 @@ export default function Products() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {list.data && <Pagination page={page} count={list.data.count} onPage={setPage} />}
       </div>
@@ -159,9 +187,9 @@ function ProductModal({ product, onClose, onSaved }: { product: Product | 'new' 
         <Field label="Selling price" required error={errors.selling_price} hint="Excluding GST"><TextInput value={f.selling_price} onChange={(e) => set('selling_price')({ target: { value: e.target.value.replace(/[^\d.]/g, '') } })} inputMode="decimal" left="₹" className="num" invalid={!!errors.selling_price} /></Field>
         <Field label="GST rate" required error={errors.gst_rate}>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="GST rate">
-            {(meta?.gst_rates ?? [0, 5, 12, 18, 28]).map((r) => (
+            {[...(meta?.gst_rates ?? [0, 0.25, 3, 5, 18, 40]), ...(meta?.gst_rates?.includes(Number(f.gst_rate)) || !f.gst_rate ? [] : [Number(f.gst_rate)])].map((r) => (
               <button key={r} type="button" role="radio" aria-checked={f.gst_rate === String(r)} onClick={() => setF((p) => ({ ...p, gst_rate: String(r) }))}
-                className={clsx('h-11 flex-1 rounded-xl border text-sm font-bold transition', f.gst_rate === String(r) ? 'gradient-brand border-transparent text-white shadow-md' : 'border-line-strong text-ink-2 hover:border-brand/50')}>{r}%</button>
+                className={clsx('h-11 min-w-[4.25rem] flex-1 rounded-xl border text-sm font-bold transition', f.gst_rate === String(r) ? 'gradient-brand border-transparent text-white shadow-md' : 'border-line-strong text-ink-2 hover:border-brand/50')}>{r}%</button>
             ))}
           </div>
         </Field>

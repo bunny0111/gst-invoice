@@ -150,7 +150,7 @@ export default function Register() {
                 <Field label="Password" required htmlFor="pw" error={errors.password}>
                   <div className="relative">
                     <TextInput id="pw" type={show ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" invalid={!!errors.password} left={<Lock className="size-4" />} className="!pl-10 !pr-11" />
-                    <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted hover:text-brand-ink">{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
+                    <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'} className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-2.5 text-muted hover:text-brand-ink">{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
                   </div>
                   <div className="mt-2.5 flex items-center gap-1.5" aria-hidden>
                     {[0, 1, 2, 3].map((i) => <span key={i} className={clsx('h-1.5 flex-1 rounded-full transition-colors duration-300', i < pwScore ? ['bg-crit', 'bg-warn', 'bg-info', 'bg-good'][pwScore - 1] : 'bg-line')} />)}

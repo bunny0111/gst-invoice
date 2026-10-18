@@ -57,7 +57,7 @@ export default function ForgotPassword() {
               <TextInput id="email" type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@business.com" left={<Mail className="size-4" />} className="!pl-10" invalid={!!errors.email} />
             </Field></div>
             <Button type="submit" size="lg" className="mt-7 w-full" loading={busy}>Send code</Button>
-            <Link to="/login" className="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-muted hover:text-brand-ink"><ArrowLeft className="size-4" />Back to login</Link>
+            <Link to="/login" className="mt-4 flex items-center justify-center gap-2 py-2 text-sm font-semibold text-muted hover:text-brand-ink"><ArrowLeft className="size-4" />Back to login</Link>
           </motion.form>
         )}
         {step === 2 && (

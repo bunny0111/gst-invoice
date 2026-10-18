@@ -21,6 +21,8 @@ export interface Me {
 export interface Meta {
   states: { code: string; name: string; gst_code: string }[]
   gst_rates: number[]
+  legacy_gst_rates?: number[]
+  gst_rate_cutover?: string
   units: { code: string; name: string }[]
   payment_modes: { code: string; name: string }[]
 }

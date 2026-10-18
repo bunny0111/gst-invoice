@@ -1,5 +1,6 @@
 """GST reference data shared by the whole backend (and exposed to the React app via /api/meta/)."""
 import re
+from datetime import date
 from decimal import Decimal
 
 # (2-letter code, name, numeric GST state code used as the first two digits of a GSTIN)
@@ -46,10 +47,24 @@ STATE_CHOICES = [(code, name) for code, name, _ in STATES]
 STATE_NAMES = {code: name for code, name, _ in STATES}
 STATE_GST_CODES = {code: gst for code, _, gst in STATES}
 
-# PRD US-04 AC2 - only these slabs are accepted. Kept in ONE place so it is a one-line change
-# if the GST Council revises the slab structure.
-GST_RATES = [Decimal("0"), Decimal("5"), Decimal("12"), Decimal("18"), Decimal("28")]
+# GST slabs - kept in ONE place so it is a one-line change if the GST Council revises them again.
+# From 22 Sep 2025 (GST 2.0) the 12% and 28% slabs were replaced by 5% / 18% (and 40% for sin & luxury goods).
+#   0.25% and 3% are the special rates for rough diamonds and gold/silver/jewellery - NOT covered by the
+#   Cashfree article this was checked against, so verify them with your CA before relying on them.
+GST_RATES = [Decimal("0"), Decimal("0.25"), Decimal("3"), Decimal("5"), Decimal("18"), Decimal("40")]
+LEGACY_GST_RATES = [Decimal("12"), Decimal("28")]   # only valid on invoices dated BEFORE the cut-over
+GST_RATE_CUTOVER = date(2025, 9, 22)
 GST_RATE_CHOICES = [(r, f"{r}%") for r in GST_RATES]
+
+
+def rates_allowed_on(on: date) -> list[Decimal]:
+    """The slabs a tax invoice dated `on` may use."""
+    return GST_RATES if on >= GST_RATE_CUTOVER else GST_RATES + LEGACY_GST_RATES
+
+
+def rate_label(rate) -> str:
+    rate = Decimal(rate)
+    return f"{rate.normalize():f}%"
 
 UNITS = [
     ("pcs", "Pieces"), ("nos", "Numbers"), ("kg", "Kilograms"), ("g", "Grams"),

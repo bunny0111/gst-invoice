@@ -44,7 +44,7 @@ export default function Login() {
           <Field label="Password" htmlFor="pw" error={error}>
             <div className="relative">
               <TextInput id="pw" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); setError('') }} placeholder="Your password" left={<Lock className="size-4" />} className="!pl-10 !pr-11" invalid={!!error} />
-              <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted hover:text-brand-ink">{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
+              <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'} className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-2.5 text-muted hover:text-brand-ink">{show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
             </div>
           </Field>
           <div className="text-right"><Link to="/forgot-password" className="text-sm font-semibold text-brand-ink hover:underline">Forgot password?</Link></div>

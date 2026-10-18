@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { motion } from 'framer-motion'
 import { ChevronRight, FileText, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { EmptyState, PageHeader, Pagination, Skeleton, StatusBadge, UpgradePrompt } from '@/components/ui/Bits'
 import { LinkButton } from '@/components/ui/Button'
 import { SearchInput } from '@/components/ui/Form'
@@ -69,7 +69,7 @@ export default function Invoices() {
               )
             })}
           </div>
-          <SearchInput value={q} onChange={setQ} placeholder="Search invoice # or customer" className="w-full sm:w-72" />
+          <SearchInput value={q} onChange={setQ} placeholder="Search invoices" className="w-full sm:w-72" />
         </div>
 
         {list.isLoading ? (
@@ -78,7 +78,33 @@ export default function Invoices() {
           <EmptyState icon={<FileText className="size-8" />} title={dq || status ? 'No invoices match' : 'No invoices yet'} message={dq || status ? 'Try another filter or search term.' : 'Create your first GST invoice — it takes under two minutes.'}
             action={!dq && !status && !atLimit && <LinkButton to="/invoices/new" icon={<Plus className="size-4" />}>Create first invoice</LinkButton>} />
         ) : (
-          <div className={clsx('overflow-x-auto scroll-thin transition-opacity', list.isPlaceholderData && 'opacity-60')}>
+          <>
+          <ul className={clsx('divide-y divide-line md:hidden', list.isPlaceholderData && 'opacity-60')}>
+            {rows.map((r) => (
+              <li key={r.id}>
+                <Link to={`/invoices/${r.id}`} className="block px-4 py-4 transition-colors active:bg-surface-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="num font-bold text-ink">{r.invoice_number ?? <span className="font-semibold italic text-muted">Draft #{r.id}</span>}</p>
+                      <p className="mt-0.5 truncate text-sm text-ink-2">{r.customer_name}</p>
+                    </div>
+                    <StatusBadge status={r.status} />
+                  </div>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <div className="text-xs text-muted">
+                      <p>{fmtDate(r.invoice_date)}</p>
+                      <p className={clsx(r.status === 'overdue' && 'font-semibold text-crit-ink')}>Due {fmtDate(r.due_date)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="num text-base font-extrabold text-ink">{inr(r.grand_total)}</p>
+                      {r.stored_status !== 'draft' && r.stored_status !== 'cancelled' && Number(r.balance_due) > 0 && <p className="num text-xs font-semibold text-ink-2">Balance {inr(r.balance_due)}</p>}
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity md:block', list.isPlaceholderData && 'opacity-60')}>
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-3.5">Invoice</th><th className="px-3">Customer</th><th className="px-3">Date</th><th className="px-3">Due</th><th className="px-3 text-right">Amount</th><th className="px-3 text-right">Balance</th><th className="px-3">Status</th><th className="w-10" />
@@ -99,6 +125,7 @@ export default function Invoices() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {list.data && <Pagination page={page} count={list.data.count} onPage={setPage} />}
       </div>

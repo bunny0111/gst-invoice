@@ -4,6 +4,7 @@ import { CalendarDays, Download, Eye, FilterX, Hash, Pencil, Trash2, Wallet } fr
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { EditPaymentModal, PaymentDetailsModal, UndoPaymentDialog, receiptHref, useRefreshPayments } from '@/components/payments/PaymentDialogs'
+import { mobileAct, mobileActDanger } from '@/components/ui/mobile'
 import { EmptyState, PageHeader, Pagination, Skeleton, StatTile } from '@/components/ui/Bits'
 import { LinkButton } from '@/components/ui/Button'
 import { IconButton } from '@/components/ui/Button'
@@ -53,7 +54,7 @@ export default function Payments() {
     <>
       <PageHeader title="Payment details" subtitle="Every payment you've recorded — view it, correct it, undo it, or generate a receipt." />
 
-      <div className="mb-6 grid gap-5 sm:grid-cols-3">
+      <div className="mb-6 grid gap-3 sm:grid-cols-3 sm:gap-5">
         <StatTile label={filtered ? 'Received (filtered)' : 'Total received'} value={inrWholeRupees(summary.data?.total ?? 0)} icon={<Wallet className="size-[18px]" />} tone="good" />
         <StatTile label="Received this month" value={inrWholeRupees(summary.data?.this_month ?? 0)} icon={<CalendarDays className="size-[18px]" />} tone="info" delay={0.05} />
         <StatTile label="Payments recorded" value={summary.data?.count ?? 0} icon={<Hash className="size-[18px]" />} tone="brand" delay={0.1} />
@@ -61,13 +62,15 @@ export default function Payments() {
 
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
-          <SearchInput value={q} onChange={setQ} placeholder="Search customer, invoice, receipt no. or reference" className="min-w-64 flex-1" />
-          <Select value={mode} onChange={(e) => setMode(e.target.value)} className="!w-44" aria-label="Payment mode">
+          <SearchInput value={q} onChange={setQ} placeholder="Search payments" className="w-full min-w-0 sm:min-w-64 sm:flex-1" />
+          <Select value={mode} onChange={(e) => setMode(e.target.value)} className="!w-full sm:!w-44" aria-label="Payment mode">
             <option value="">All modes</option>
             {(meta?.payment_modes ?? []).map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
           </Select>
-          <label className="flex items-center gap-2 text-[13px] font-semibold text-muted">From<input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={clsx(inputCls, 'h-11 !w-40')} aria-label="From date" /></label>
-          <label className="flex items-center gap-2 text-[13px] font-semibold text-muted">To<input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={clsx(inputCls, 'h-11 !w-40')} aria-label="To date" /></label>
+          <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:items-center">
+            <label className="flex min-w-0 flex-col gap-1 text-[12px] font-semibold text-muted sm:flex-row sm:items-center sm:gap-2 sm:text-[13px]">From<input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={clsx(inputCls, 'h-11 w-full min-w-0 !px-2 sm:!w-40 sm:!px-3.5')} aria-label="From date" /></label>
+            <label className="flex min-w-0 flex-col gap-1 text-[12px] font-semibold text-muted sm:flex-row sm:items-center sm:gap-2 sm:text-[13px]">To<input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className={clsx(inputCls, 'h-11 w-full min-w-0 !px-2 sm:!w-40 sm:!px-3.5')} aria-label="To date" /></label>
+          </div>
           {filtered && <button onClick={clear} className="inline-flex h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-muted hover:bg-brand-soft hover:text-brand-ink"><FilterX className="size-4" />Clear</button>}
         </div>
 
@@ -78,7 +81,33 @@ export default function Payments() {
             message={filtered ? 'Try a different search, mode or date range.' : 'When you record a payment against an invoice it shows up here, with its receipt.'}
             action={!filtered && <LinkButton to="/invoices?status=pending" size="sm">Go to unpaid invoices</LinkButton>} />
         ) : (
-          <div className={clsx('overflow-x-auto scroll-thin transition-opacity', list.isPlaceholderData && 'opacity-60')}>
+          <>
+          <ul className={clsx('divide-y divide-line md:hidden', list.isPlaceholderData && 'opacity-60')}>
+            {rows.map((p) => (
+              <li key={p.id} className="px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="num font-bold text-ink">{p.receipt_number}</p>
+                    <p className="mt-0.5 truncate text-sm text-ink-2">{p.customer_name}</p>
+                  </div>
+                  <p className="num text-base font-extrabold text-ink">{inr(p.amount)}</p>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
+                  <span>{fmtDate(p.payment_date)}</span>
+                  <Link to={`/invoices/${p.invoice}`} className="num -my-2 py-2 font-semibold text-brand-ink">{p.invoice_number}</Link>
+                  <span className={clsx('rounded-full px-2.5 py-1 font-semibold', MODE_TONE[p.mode] ?? 'bg-[var(--neutral-soft)] text-[var(--neutral-ink)]')}>{p.mode_label}</span>
+                  {p.reference && <span className="num max-w-full truncate">Ref {p.reference}</span>}
+                </div>
+                <div className="mt-3 grid grid-cols-4 gap-2">
+                  <button onClick={() => setViewing(p)} className={mobileAct}><Eye className="size-4 shrink-0" />View</button>
+                  <button onClick={() => setEditing(p)} className={mobileAct}><Pencil className="size-4 shrink-0" />Edit</button>
+                  <a href={receiptHref(p.id)} download className={mobileAct}><Download className="size-4 shrink-0" />Receipt</a>
+                  <button onClick={() => setUndoing(p)} className={mobileActDanger}><Trash2 className="size-4 shrink-0" />Undo</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity md:block', list.isPlaceholderData && 'opacity-60')}>
             <table className="w-full min-w-[960px] text-left text-sm">
               <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-3.5">Receipt</th><th className="px-3">Date</th><th className="px-3">Invoice</th><th className="px-3">Customer</th><th className="px-3">Mode</th><th className="px-3">Reference</th><th className="px-3 text-right">Amount</th><th className="px-5 text-right">Actions</th>
@@ -104,6 +133,7 @@ export default function Payments() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {list.data && <Pagination page={page} count={list.data.count} onPage={setPage} />}
       </div>

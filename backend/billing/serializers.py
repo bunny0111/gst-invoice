@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from common.gst import GST_RATES, PAYMENT_MODES, STATE_CHOICES, STATE_NAMES, UNIT_CODES, is_valid_gstin
+from common.gst import GST_RATES, LEGACY_GST_RATES, GST_RATE_CUTOVER, PAYMENT_MODES, rate_label, rates_allowed_on, STATE_CHOICES, STATE_NAMES, UNIT_CODES, is_valid_gstin
 from common.words import amount_in_words
 
 from .models import Customer, Invoice, InvoiceLineItem, Payment, Product
@@ -71,9 +71,16 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 # --------------------------------------------------------------------------- products
 def validate_gst_rate(value):
-    if Decimal(value) not in GST_RATES:  # US-04 AC2
-        raise serializers.ValidationError("GST rate must be one of " + ", ".join(f"{r}%" for r in GST_RATES) + ".")
+    # field-level: any slab that has ever been valid. Whether a legacy slab (12% / 28%) is allowed is date-dependent
+    # and decided where the date is known (invoice date for line items, "already on the product" for products).
+    if Decimal(value) not in GST_RATES + LEGACY_GST_RATES:  # US-04 AC2
+        raise serializers.ValidationError("GST rate must be one of " + ", ".join(rate_label(r) for r in GST_RATES) + ".")
     return value
+
+
+def _legacy_rate_message(rate) -> str:
+    return (f"The {rate_label(rate)} slab was removed on {GST_RATE_CUTOVER:%d %b %Y}. Use one of "
+            + ", ".join(rate_label(r) for r in GST_RATES) + ".")
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -86,6 +93,12 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "description", "item_type", "hsn_sac_code", "unit", "selling_price", "gst_rate",
                   "is_active", "created_at"]
         read_only_fields = ["is_active", "created_at"]
+
+    def validate_gst_rate(self, value):
+        # a product saved before the 2025 slab change may keep its old rate until someone edits that field
+        if Decimal(value) in LEGACY_GST_RATES and not (self.instance and Decimal(self.instance.gst_rate) == Decimal(value)):
+            raise serializers.ValidationError(_legacy_rate_message(value))
+        return value
 
     def validate_name(self, value):
         value = value.strip()
@@ -133,6 +146,11 @@ class InvoiceWriteSerializer(serializers.Serializer):
         due_date = attrs.get("due_date")
         if invoice_date and due_date and due_date < invoice_date:
             raise serializers.ValidationError({"due_date": ["Due date can't be before the invoice date."]})
+        if invoice_date:
+            allowed = rates_allowed_on(invoice_date)
+            for idx, item in enumerate(attrs.get("items", [])):
+                if Decimal(item["gst_rate"]) not in allowed:
+                    raise serializers.ValidationError({"items": {idx: {"gst_rate": [_legacy_rate_message(item["gst_rate"])]}}})
         return attrs
 
 

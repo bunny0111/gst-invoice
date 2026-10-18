@@ -117,12 +117,30 @@ export default function Dashboard() {
         <section className="card overflow-hidden">
           <div className="flex items-center justify-between border-b border-line px-6 py-4">
             <h3 className="font-display text-base font-bold text-ink">Recent invoices</h3>
-            <Link to="/invoices" className="inline-flex items-center gap-1 text-[13px] font-bold text-brand-ink hover:underline">View all <ArrowRight className="size-3.5" /></Link>
+            <Link to="/invoices" className="-my-2 inline-flex items-center gap-1 py-2 text-[13px] font-bold text-brand-ink hover:underline">View all <ArrowRight className="size-3.5" /></Link>
           </div>
           {data.recent_invoices.length === 0 ? (
             <EmptyState icon={<FilePlus2 className="size-8" />} title="No invoices yet" message="Your latest invoices will appear here with their payment status." action={<LinkButton to="/invoices/new" size="sm" icon={<Plus className="size-4" />}>Create invoice</LinkButton>} />
           ) : (
-            <div className="overflow-x-auto scroll-thin">
+            <>
+            <ul className="divide-y divide-line md:hidden">
+              {data.recent_invoices.map((r) => (
+                <li key={r.id}>
+                  <Link to={`/invoices/${r.id}`} className="flex items-center justify-between gap-3 px-4 py-3.5 transition-colors active:bg-surface-2">
+                    <div className="min-w-0">
+                      <p className="num font-bold text-ink">{r.invoice_number ?? <span className="font-semibold italic text-muted">Draft #{r.id}</span>}</p>
+                      <p className="truncate text-sm text-ink-2">{r.customer_name}</p>
+                      <p className="text-xs text-muted">{fmtDate(r.invoice_date)}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <p className="num font-extrabold text-ink">{inr(r.grand_total)}</p>
+                      <StatusBadge status={r.status} />
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto scroll-thin md:block">
               <table className="w-full min-w-[520px] text-left text-sm">
                 <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted"><th className="px-6 py-3">Invoice</th><th className="px-3">Customer</th><th className="px-3 text-right">Amount</th><th className="px-6">Status</th></tr></thead>
                 <tbody>
@@ -137,6 +155,7 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </section>
 

@@ -89,7 +89,7 @@ export default function InvoiceView() {
 
   return (
     <>
-      <Link to="/invoices" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-brand-ink"><ArrowLeft className="size-4" />All invoices</Link>
+      <Link to="/invoices" className="mb-2 inline-flex items-center gap-1.5 py-2 text-sm font-semibold text-muted hover:text-brand-ink"><ArrowLeft className="size-4" />All invoices</Link>
       <div className="mb-7 flex flex-wrap items-center gap-4">
         <h1 className="font-display text-[26px] font-extrabold tracking-tight text-ink">{d.invoice_number ?? `Draft #${d.id}`}</h1>
         <StatusBadge status={d.status} className="!px-3 !py-1.5 !text-[13px]" />
@@ -132,7 +132,7 @@ export default function InvoiceView() {
           {d.payments.length > 0 && (
             <div className="card p-5">
               <div className="flex items-center justify-between gap-3"><h3 className="font-display text-[15px] font-bold text-ink">Payment details</h3>
-                <Link to={`/payments?q=${encodeURIComponent(d.invoice_number ?? '')}`} className="text-[13px] font-bold text-brand-ink hover:underline">All payments →</Link></div>
+                <Link to={`/payments?q=${encodeURIComponent(d.invoice_number ?? '')}`} className="-my-2 py-2 text-[13px] font-bold text-brand-ink hover:underline">All payments →</Link></div>
               <ul className="mt-4 space-y-3">
                 {d.payments.map((p) => (
                   <li key={p.id} className="flex items-center gap-3 rounded-xl bg-surface-2 p-3">
@@ -270,7 +270,26 @@ function Paper({ d }: { d: InvoiceDetail }) {
           </div>
         </div>
 
-        <div className="mt-6 overflow-x-auto scroll-thin rounded-xl border border-[#e8e6f6]">
+        <ul className="mt-6 divide-y divide-[#efedfb] rounded-xl border border-[#e8e6f6] md:hidden">
+          {d.items.map((it, i) => (
+            <li key={i} className="p-3.5 text-[13px]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold leading-snug"><span className="text-[#6b6890]">{i + 1}.</span> {it.item_name}</p>
+                  {(it.hsn_sac_code || it.description) && <p className="mt-0.5 text-[11px] text-[#6b6890]">{it.hsn_sac_code ? `HSN/SAC ${it.hsn_sac_code}` : ''}{it.hsn_sac_code && it.description ? ' · ' : ''}{it.description}</p>}
+                </div>
+                <p className="num shrink-0 font-bold">{inrPlain(it.line_total)}</p>
+              </div>
+              <p className="num mt-1.5 text-xs leading-relaxed text-[#6b6890]">
+                {trimZero(it.quantity)} {it.unit} × {inrPlain(it.unit_price)}
+                {Number(it.discount_amount) > 0 && <> · Disc. {inrPlain(it.discount_amount)} ({trimZero(it.discount_percent)}%)</>}
+                {' '}· Taxable {inrPlain(it.taxable_amount)} · GST {trimZero(it.gst_rate)}%
+              </p>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-6 hidden overflow-x-auto scroll-thin rounded-xl border border-[#e8e6f6] md:block">
           <table className="w-full text-[12.5px]">
             <thead><tr className="bg-[#4f3fe0] text-[10px] font-bold uppercase tracking-wider text-white">
               <th className="w-8 py-2.5 pl-3 text-left">#</th><th className="px-2 text-left">Item</th><th className="px-2 text-right">Qty</th><th className="px-2 text-right">Rate</th>

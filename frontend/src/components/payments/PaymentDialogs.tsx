@@ -56,7 +56,7 @@ export function PaymentDetailsModal({ payment, onClose, onEdit }: { payment: Pay
               <p className="text-xs font-bold uppercase tracking-wider text-muted">Against invoice</p>
               <StatusBadge status={p.invoice_status} />
             </div>
-            <Link to={`/invoices/${p.invoice}`} onClick={onClose} className="num mt-1 inline-flex items-center gap-1.5 font-display text-lg font-extrabold text-brand-ink hover:underline">{p.invoice_number}<ExternalLink className="size-4" /></Link>
+            <Link to={`/invoices/${p.invoice}`} onClick={onClose} className="num -my-1 mt-1 inline-flex items-center gap-1.5 py-1.5 font-display text-lg font-extrabold text-brand-ink hover:underline">{p.invoice_number}<ExternalLink className="size-4" /></Link>
             <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
               {([['Invoice total', p.invoice_total], ['Received so far', p.invoice_paid], ['Balance due', p.invoice_balance]] as const).map(([k, v]) => <div key={k}><dt className="text-xs text-muted">{k}</dt><dd className="num font-bold text-ink">{inr(v)}</dd></div>)}
             </dl>

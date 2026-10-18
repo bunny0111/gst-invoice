@@ -14,7 +14,7 @@ from rest_framework.response import Response
 
 from tenants.plans import COMPARISON, PLANS
 
-from .gst import GST_RATES, PAYMENT_MODES, STATES, UNITS
+from .gst import GST_RATE_CUTOVER, GST_RATES, LEGACY_GST_RATES, PAYMENT_MODES, STATES, UNITS
 
 
 def is_public(request) -> bool:
@@ -57,7 +57,9 @@ def plans(request):
 def meta(request):
     return Response({
         "states": [{"code": c, "name": n, "gst_code": g} for c, n, g in STATES],
-        "gst_rates": [int(r) for r in GST_RATES],
+        "gst_rates": [float(r) if r % 1 else int(r) for r in GST_RATES],
+        "legacy_gst_rates": [int(r) for r in LEGACY_GST_RATES],
+        "gst_rate_cutover": GST_RATE_CUTOVER.isoformat(),
         "units": [{"code": c, "name": n} for c, n in UNITS],
         "payment_modes": [{"code": c, "name": n} for c, n in PAYMENT_MODES],
     })

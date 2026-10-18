@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { Building2, Pencil, Plus, RotateCcw, Trash2, UserRound, Users } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
+import { mobileAct, mobileActDanger } from '@/components/ui/mobile'
 import { Avatar, EmptyState, PageHeader, Pagination, Skeleton, UpgradePrompt } from '@/components/ui/Bits'
 import { Button, IconButton } from '@/components/ui/Button'
 import { Field, Select, SearchInput, Textarea, TextInput } from '@/components/ui/Form'
@@ -59,8 +60,8 @@ export default function Customers() {
 
       <div className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
-          <SearchInput value={q} onChange={setQ} placeholder="Search by name, GSTIN or phone" className="min-w-64 flex-1" />
-          <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="!w-40" aria-label="Filter by status">
+          <SearchInput value={q} onChange={setQ} placeholder="Search name, GSTIN, phone" className="w-full min-w-0 sm:min-w-64 sm:flex-1" />
+          <Select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} className="!w-full sm:!w-40" aria-label="Filter by status">
             <option value="active">Active</option><option value="inactive">Removed</option><option value="all">All</option>
           </Select>
         </div>
@@ -71,7 +72,36 @@ export default function Customers() {
           <EmptyState icon={<Users className="size-8" />} title={dq ? 'No matching customers' : 'No customers yet'} message={dq ? 'Try a different name, GSTIN or phone number.' : 'Add your first customer — their state decides whether CGST + SGST or IGST applies on invoices.'}
             action={!dq && !atLimit && <Button onClick={() => setEditing('new')} icon={<Plus className="size-4" />}>Add your first customer</Button>} />
         ) : (
-          <div className={clsx('overflow-x-auto scroll-thin transition-opacity', list.isPlaceholderData && 'opacity-60')}>
+          <>
+          <ul className={clsx('divide-y divide-line md:hidden', list.isPlaceholderData && 'opacity-60')}>
+            {rows.map((c) => (
+              <li key={c.id} className={clsx('px-4 py-4', !c.is_active && 'opacity-60')}>
+                <div className="flex items-start gap-3">
+                  <Avatar name={c.name} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink">{c.name}</p>
+                    <p className="truncate text-xs text-muted">{c.email || c.city || '—'}</p>
+                  </div>
+                  {c.customer_type === 'b2b'
+                    ? <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-info-soft px-2 py-1 text-xs font-semibold text-info-ink"><Building2 className="size-3" />B2B</span>
+                    : <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--neutral-soft)] px-2 py-1 text-xs font-semibold text-[var(--neutral-ink)]"><UserRound className="size-3" />B2C</span>}
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                  <div><dt className="text-muted">Phone</dt><dd className="num font-medium text-ink-2">{c.phone || '—'}</dd></div>
+                  <div><dt className="text-muted">State</dt><dd className="font-medium text-ink-2">{c.state_name}</dd></div>
+                  {c.gstin && <div className="col-span-2"><dt className="text-muted">GSTIN</dt><dd className="num break-all font-medium text-ink-2">{c.gstin}</dd></div>}
+                  <div><dt className="text-muted">Invoices</dt><dd className="num font-semibold text-ink-2">{c.invoice_count}</dd></div>
+                </dl>
+                <div className="mt-3 flex gap-2">
+                  {c.is_active ? (<>
+                    <button onClick={() => setEditing(c)} className={mobileAct}><Pencil className="size-4 shrink-0" />Edit</button>
+                    <button onClick={() => setRemoving(c)} className={mobileActDanger}><Trash2 className="size-4 shrink-0" />Remove</button>
+                  </>) : <button onClick={() => restore.mutate(c)} className={mobileAct}><RotateCcw className="size-4 shrink-0" />Restore</button>}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity md:block', list.isPlaceholderData && 'opacity-60')}>
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-3.5">Customer</th><th className="px-3">GSTIN</th><th className="px-3">State</th><th className="px-3">Phone</th><th className="px-3 text-right">Invoices</th><th className="px-5" />
@@ -98,6 +128,7 @@ export default function Customers() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {list.data && <Pagination page={page} count={list.data.count} onPage={setPage} />}
       </div>
