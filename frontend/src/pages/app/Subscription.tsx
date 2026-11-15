@@ -129,7 +129,7 @@ export default function Subscription() {
         <div className="border-b border-line px-6 py-4"><h3 className="font-display text-base font-bold text-ink">Compare plans</h3></div>
         <div className="overflow-x-auto scroll-thin">
           <table className="w-full table-fixed text-left sm:table-auto text-[12.5px] sm:text-sm">
-            <thead><tr className="border-b border-line bg-surface-2 text-[10.5px] font-bold uppercase tracking-normal text-muted sm:text-[12px] sm:tracking-wider"><th className="w-[34%] px-3 py-3.5 sm:w-auto sm:px-6">Feature</th>{sub.plans.map((p) => <th key={p.key} className={clsx('px-0.5 text-center sm:px-3', p.key === sub.plan && 'text-brand-ink')}>{p.name}</th>)}</tr></thead>
+            <thead><tr className="border-b border-line bg-surface-2 text-[10.5px] font-bold uppercase tracking-normal text-muted sm:text-[12px] sm:tracking-wider"><th className="w-[31%] px-3 py-3.5 sm:w-auto sm:px-6">Feature</th>{sub.plans.map((p) => <th key={p.key} className={clsx('px-0.5 text-center sm:px-3', p.key === sub.plan && 'text-brand-ink')}>{p.name}</th>)}</tr></thead>
             <tbody>
               {sub.comparison.map((row) => (
                 <tr key={row.feature} className="border-b border-line last:border-0">

@@ -102,7 +102,7 @@ export default function InvoiceView() {
           <div className="card overflow-hidden">
             <div className={clsx('px-6 py-5', cancelled ? 'bg-[var(--neutral-soft)]' : d.status === 'paid' ? 'bg-good-soft' : d.status === 'overdue' ? 'bg-crit-soft' : 'bg-brand-soft')}>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted">{draft ? 'Total (draft)' : d.status === 'paid' ? 'Fully paid' : 'Balance due'}</p>
-              <p className="mt-1 font-display text-4xl font-extrabold tracking-tight text-ink">{inr(draft || d.status === 'paid' ? d.grand_total : d.balance_due)}</p>
+              <p className="mt-1 font-display text-[clamp(1.875rem,9vw,2.25rem)] font-extrabold tracking-tight text-ink [overflow-wrap:anywhere]">{inr(draft || d.status === 'paid' ? d.grand_total : d.balance_due)}</p>
               {!draft && d.status !== 'paid' && Number(d.amount_paid) > 0 && <p className="mt-1 text-[13px] text-ink-2">{inr(d.amount_paid)} of {inr(d.grand_total)} received</p>}
               {payable && <p className={clsx('mt-1 text-[13px] font-semibold', d.status === 'overdue' ? 'text-crit-ink' : 'text-ink-2')}>Due {fmtDate(d.due_date)}</p>}
             </div>
@@ -234,6 +234,8 @@ function Paper({ d }: { d: InvoiceDetail }) {
   const from = d.bill_from
   const to = d.bill_to
   const intra = d.supply_type === 'intrastate'
+  const registered = !!from.gstin  // no GSTIN on the invoice = issued as a Bill of Supply, without GST
+  const accountType = { savings: 'Savings', current: 'Current', cash_credit: 'Cash Credit', overdraft: 'Overdraft' }[from.account_type as string]
   const hasDiscount = d.items.some((it) => Number(it.discount_amount) > 0)
   const stamp = d.stored_status === 'cancelled' ? ['CANCELLED', 'text-[#d03b3b] border-[#d03b3b]'] : d.stored_status === 'draft' ? ['DRAFT', 'text-[#8380a6] border-[#8380a6]'] : d.status === 'paid' ? ['PAID', 'text-[#0ca30c] border-[#0ca30c]'] : null
 
@@ -246,11 +248,11 @@ function Paper({ d }: { d: InvoiceDetail }) {
           <div>
             {from.logo_url && <img src={from.logo_url} alt="" className="mb-3 max-h-14 max-w-40 object-contain" />}
             <h2 className="font-display text-xl font-extrabold">{from.business_name}</h2>
-            <p className="mt-1 text-[13px] leading-relaxed text-[#6b6890]">{from.address_line1}{from.address_line2 ? `, ${from.address_line2}` : ''}<br />{from.city}, {from.state_name} – {from.pincode}<br />{from.phone}{from.email ? ` · ${from.email}` : ''}</p>
-            <p className="mt-2 text-[13px]"><b>GSTIN:</b> <span className="num">{from.gstin || '—'}</span>{from.pan ? <> &nbsp;·&nbsp; <b>PAN:</b> <span className="num">{from.pan}</span></> : null}</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-[#6b6890]">{from.address_line1}{from.address_line2 ? `, ${from.address_line2}` : ''}<br />{from.city}, {from.state_name} – {from.pincode}<br />{from.phone}{from.email ? ` · ${from.email}` : ''}{from.website ? <><br />{String(from.website).replace(/^https?:\/\//, '')}</> : null}</p>
+            <p className="mt-2 text-[13px]"><b>GSTIN:</b> <span className="num">{from.gstin || 'Not registered under GST'}</span>{from.pan ? <> &nbsp;·&nbsp; <b>PAN:</b> <span className="num">{from.pan}</span></> : null}</p>
           </div>
-          <div className="text-right"><p className="font-display text-3xl font-extrabold tracking-wide text-[#4f3fe0]">TAX INVOICE</p>
-            <p className="mt-1 text-xs text-[#6b6890]">{d.supply_type === 'export' ? 'Export / SEZ — zero-rated supply' : intra ? 'Intra-state supply' : 'Inter-state supply'}</p></div>
+          <div className="text-right"><p className="font-display text-3xl font-extrabold tracking-wide text-[#4f3fe0]">{registered ? 'TAX INVOICE' : 'BILL OF SUPPLY'}</p>
+            <p className="mt-1 text-xs text-[#6b6890]">{!registered ? 'Supplier not registered under GST — no GST charged' : d.supply_type === 'export' ? 'Export / SEZ — zero-rated supply' : intra ? 'Intra-state supply' : 'Inter-state supply'}</p></div>
         </header>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -318,7 +320,17 @@ function Paper({ d }: { d: InvoiceDetail }) {
             <div className="rounded-xl bg-[#f3f1ff] p-3.5"><p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6b6890]">Amount in words</p><p className="mt-1 font-bold text-[#4f3fe0]">{d.amount_in_words}</p></div>
             {(from.bank_name || from.account_number) && (
               <div><p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6b6890]">Bank details</p>
-                <dl className="space-y-1">{[['A/c holder', from.account_holder_name], ['Bank', from.bank_name], ['A/c number', from.account_number], ['IFSC', from.ifsc_code]].filter(([, v]) => v).map(([k, v]) => <div key={k} className="flex gap-4"><dt className="w-20 text-[#6b6890]">{k}</dt><dd className="num font-semibold">{v}</dd></div>)}</dl></div>
+                <dl className="space-y-1">{[['A/c holder', from.account_holder_name], ['Bank', [from.bank_name, from.bank_branch].filter(Boolean).join(', ')], ['A/c number', from.account_number ? `${from.account_number}${accountType ? ` (${accountType})` : ''}` : ''], ['IFSC', from.ifsc_code]].filter(([, v]) => v).map(([k, v]) => <div key={k} className="flex gap-4"><dt className="w-20 shrink-0 text-[#6b6890]">{k}</dt><dd className="num min-w-0 font-semibold">{v}</dd></div>)}</dl></div>
+            )}
+            {(from.upi_id || from.payment_qr_url || from.payment_instructions) && (
+              <div className="flex gap-3.5">
+                {from.payment_qr_url && <img src={from.payment_qr_url} alt="Payment QR code" className="size-24 shrink-0 rounded-lg border border-[#e8e6f6] object-contain p-1" />}
+                <div className="min-w-0"><p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6b6890]">Pay by UPI</p>
+                  {from.upi_id && <p>UPI ID: <b className="num break-all">{from.upi_id}</b></p>}
+                  {!from.payment_qr_url && from.upi_id && <p className="mt-0.5 text-xs text-[#6b6890]">The PDF carries a scan-to-pay QR for the amount due.</p>}
+                  {from.payment_instructions && <p className="mt-1 whitespace-pre-line text-[#3d3a5c]">{from.payment_instructions}</p>}
+                </div>
+              </div>
             )}
             {d.notes && <div><p className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6b6890]">Notes</p><p className="whitespace-pre-line">{d.notes}</p></div>}
             {d.terms && <div><p className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#6b6890]">Terms & conditions</p><p className="whitespace-pre-line text-[#6b6890]">{d.terms}</p></div>}
@@ -328,12 +340,16 @@ function Paper({ d }: { d: InvoiceDetail }) {
               <Tot k="Subtotal" v={d.subtotal} />
               {Number(d.discount_total) > 0 && <Tot k="Discount" v={`-${d.discount_total}`} />}
               <Tot k="Taxable amount" v={d.taxable_amount} />
-              <Tot k="CGST" v={d.cgst_amount} /><Tot k="SGST" v={d.sgst_amount} /><Tot k="IGST" v={d.igst_amount} />
+              {registered ? <><Tot k="CGST" v={d.cgst_amount} /><Tot k="SGST" v={d.sgst_amount} /><Tot k="IGST" v={d.igst_amount} /></> : <p className="text-xs text-[#6b6890]">No GST — supplier not registered under GST.</p>}
               {Number(d.round_off) !== 0 && <Tot k="Round off" v={`${Number(d.round_off) > 0 ? '+' : '-'}${Math.abs(Number(d.round_off))}`} />}
               <div className="flex items-baseline justify-between border-t-2 border-[#4f3fe0] pt-3"><dt className="font-display text-lg font-extrabold text-[#4f3fe0]">Grand total</dt><dd className="font-display text-2xl font-extrabold text-[#4f3fe0]">{inr(d.grand_total)}</dd></div>
               {Number(d.amount_paid) > 0 && (<><Tot k="Amount paid" v={d.amount_paid} green /><Tot k="Balance due" v={d.balance_due} bold /></>)}
             </dl>
-            <div className="mt-10 text-right"><div className="ml-auto inline-block w-48 border-t border-[#1e1b3a] pt-1.5 text-xs text-[#6b6890]">Authorised signatory<br /><b className="text-[#1e1b3a]">{from.business_name}</b></div></div>
+            <div className="mt-10 text-right">
+              <p className="text-xs text-[#6b6890]">For <b className="text-[#1e1b3a]">{from.business_name}</b></p>
+              {from.signature_url ? <img src={from.signature_url} alt="Signature" className="ml-auto mt-1 max-h-12 max-w-40 object-contain" /> : <div className="h-8" />}
+              <div className="ml-auto inline-block w-48 border-t border-[#1e1b3a] pt-1.5 text-xs text-[#6b6890]">{from.signatory_name && <><b className="text-[#1e1b3a]">{from.signatory_name}</b><br /></>}Authorised signatory</div>
+            </div>
           </div>
         </div>
       </div>

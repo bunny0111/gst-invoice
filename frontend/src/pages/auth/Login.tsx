@@ -6,15 +6,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Field, TextInput } from '@/components/ui/Form'
 import { ApiError, post } from '@/lib/api'
-import { isStandalone } from '@/lib/pwa'
 import type { Me } from '@/lib/types'
 import AuthLayout from './AuthLayout'
 
 const KEEP_KEY = 'gst-keep-signed-in'
-/** Remembers the last choice; first time, it's pre-ticked only inside the installed app (a personal device). */
+/** Ticked by default - most people use their own phone/PC and expect to stay in. Unticking is remembered. */
 function initialKeep(): boolean {
   try { const v = localStorage.getItem(KEEP_KEY); if (v !== null) return v === '1' } catch { /* private mode */ }
-  return isStandalone()
+  return true
 }
 
 export default function Login() {

@@ -87,7 +87,16 @@
 @keyframes shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }
 @keyframes blob { 0%,100% { transform: translate(0,0) scale(1) } 33% { transform: translate(30px,-40px) scale(1.08) } 66% { transform: translate(-24px,26px) scale(0.94) } }
 
+/* Grid items default to min-width:auto, so one long unbroken line (a customer name, a "truncate" label) widens
+   the whole column past the screen and phones zoom the page out. Let them shrink; utilities can still override. */
+@layer base {
+  .grid > * { min-width: 0; }
+}
+
 html { scroll-behavior: smooth; }
+/* Safety net: decorative blobs/animations must never widen the page (a phone then zooms out and slides sideways).
+   clip (not hidden) keeps position:sticky headers working. */
+html, body { overflow-x: clip; }
 body {
   margin: 0;
   background: var(--canvas);

@@ -1,15 +1,17 @@
 import re
+from datetime import timedelta
 from decimal import Decimal
 
+from django.utils import timezone
 from rest_framework import serializers
 
-from common.gst import GST_RATES, LEGACY_GST_RATES, GST_RATE_CUTOVER, PAYMENT_MODES, rate_label, rates_allowed_on, STATE_CHOICES, STATE_NAMES, UNIT_CODES, is_valid_gstin
+from common.gst import (GST_RATES, LEGACY_GST_RATES, GST_RATE_CUTOVER, PAYMENT_MODES, rate_label, rates_allowed_on,
+                        STATE_CHOICES, STATE_NAMES, UNIT_CODES, gstin_state, is_valid_gstin, is_valid_pincode,
+                        normalize_international_phone, normalize_phone)
 from common.words import amount_in_words
 
 from .models import Customer, Invoice, InvoiceLineItem, Payment, Product
 from .services import business_snapshot, customer_snapshot
-
-_PHONE = re.compile(r"^\+?[0-9][0-9 \-]{6,14}$")
 
 
 # --------------------------------------------------------------------------- customers
@@ -22,7 +24,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     invoice_count = serializers.IntegerField(read_only=True, default=0)
     customer_type = serializers.ChoiceField(choices=Customer.TYPE_CHOICES, required=False)
     phone = serializers.CharField(
-        max_length=15, error_messages={"required": "Phone number is required.", "blank": "Phone number is required.",
+        max_length=25, error_messages={"required": "Phone number is required.", "blank": "Phone number is required.",
                                         "null": "Phone number is required."})
 
     class Meta:
@@ -44,18 +46,21 @@ class CustomerSerializer(serializers.ModelSerializer):
         value = value.strip().upper()
         if value and not is_valid_gstin(value):
             raise serializers.ValidationError("GST number must be exactly 15 letters/digits.")
+        if value and not gstin_state(value):
+            raise serializers.ValidationError("The first two digits of a GST number are its state code (e.g. 07 for Delhi).")
         return value
 
     def validate_pincode(self, value):
-        if value and not re.fullmatch(r"\d{6}", value.strip()):
-            raise serializers.ValidationError("Pincode must be 6 digits.")
+        if value and not is_valid_pincode(value.strip()):
+            raise serializers.ValidationError("Pincode must be 6 digits and can't start with 0.")
         return value.strip()
 
     def validate_phone(self, value):
-        value = value.strip()
-        if not _PHONE.match(value):
-            raise serializers.ValidationError("Enter a valid phone number.")
-        return value
+        # Indian numbers are stored as exactly 10 digits; a foreign customer (export) keeps "+<country code>..."
+        phone = normalize_phone(value) or normalize_international_phone(value)
+        if not phone:
+            raise serializers.ValidationError("Enter a 10-digit phone number (or +country code for a foreign number).")
+        return phone
 
     def validate(self, attrs):
         existing = self.instance
@@ -66,6 +71,11 @@ class CustomerSerializer(serializers.ModelSerializer):
         attrs["customer_type"] = ctype
         if ctype == Customer.B2B and not gstin:
             raise serializers.ValidationError({"gstin": ["GST number is required for B2B customers."]})
+        state = attrs["state"] if "state" in attrs else (existing.state if existing else "")
+        if gstin and state and gstin_state(gstin) != state:
+            raise serializers.ValidationError({"gstin": [
+                f"This GST number is registered in {STATE_NAMES.get(gstin_state(gstin), 'another state')} "
+                f"(code {gstin[:2]}), but the customer's state is {STATE_NAMES.get(state, state)}."]})
         return attrs
 
 
@@ -132,6 +142,9 @@ class LineItemWriteSerializer(serializers.Serializer):
         return value
 
 
+MAX_DAYS_AHEAD = 30  # an invoice may be dated a little ahead (goods leaving tomorrow), not months away
+
+
 class InvoiceWriteSerializer(serializers.Serializer):
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.filter(is_active=True))
     invoice_date = serializers.DateField()
@@ -146,6 +159,10 @@ class InvoiceWriteSerializer(serializers.Serializer):
         due_date = attrs.get("due_date")
         if invoice_date and due_date and due_date < invoice_date:
             raise serializers.ValidationError({"due_date": ["Due date can't be before the invoice date."]})
+        latest = timezone.localdate() + timedelta(days=MAX_DAYS_AHEAD)
+        if invoice_date and invoice_date > latest:  # almost always a typo in the year
+            raise serializers.ValidationError({"invoice_date": [
+                f"The invoice date can be at most {MAX_DAYS_AHEAD} days ahead (latest {latest:%d %b %Y}). Check the year."]})
         if invoice_date:
             allowed = rates_allowed_on(invoice_date)
             for idx, item in enumerate(attrs.get("items", [])):
@@ -252,7 +269,9 @@ class InvoiceDetailSerializer(InvoiceListSerializer):
             logo_url = f"/api/logo/{snap['logo_id']}/"
         else:  # snapshots from before logos moved into the database
             logo_url = f"/media/{snap['logo']}" if snap.get("logo") else None
-        return {**snap, "logo_url": logo_url}
+        image = lambda key: f"/api/logo/{snap[key]}/" if snap.get(key) else None  # noqa: E731
+        return {**snap, "logo_url": logo_url, "signature_url": image("signature_id"),
+                "payment_qr_url": image("payment_qr_id"), "is_gst_registered": bool(snap.get("gstin"))}
 
     def get_bill_to(self, obj):
         return obj.customer_snapshot or customer_snapshot(obj.customer)

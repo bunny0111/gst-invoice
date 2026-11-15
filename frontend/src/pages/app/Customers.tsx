@@ -9,6 +9,7 @@ import { Button, IconButton } from '@/components/ui/Button'
 import { Field, Select, SearchInput, Textarea, TextInput } from '@/components/ui/Form'
 import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { ApiError, del, get, patch, post, qs } from '@/lib/api'
+import { customerPhoneInput, gstinInput, phoneInput, stateFromGstin } from '@/lib/gst'
 import { useDebounce, useMeta, useRefreshUsage, useSubscription } from '@/lib/hooks'
 import type { Customer, Paginated } from '@/lib/types'
 
@@ -73,7 +74,7 @@ export default function Customers() {
             action={!dq && !atLimit && <Button onClick={() => setEditing('new')} icon={<Plus className="size-4" />}>Add your first customer</Button>} />
         ) : (
           <>
-          <ul className={clsx('divide-y divide-line md:hidden', list.isPlaceholderData && 'opacity-60')}>
+          <ul className={clsx('divide-y divide-line xl:hidden', list.isPlaceholderData && 'opacity-60')}>
             {rows.map((c) => (
               <li key={c.id} className={clsx('px-4 py-4', !c.is_active && 'opacity-60')}>
                 <div className="flex items-start gap-3">
@@ -101,7 +102,7 @@ export default function Customers() {
               </li>
             ))}
           </ul>
-          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity md:block', list.isPlaceholderData && 'opacity-60')}>
+          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity xl:block', list.isPlaceholderData && 'opacity-60')}>
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-3.5">Customer</th><th className="px-3">GSTIN</th><th className="px-3">State</th><th className="px-3">Phone</th><th className="px-3 text-right">Invoices</th><th className="px-5" />
@@ -162,6 +163,7 @@ export function CustomerModal({ customer, onClose, onSaved }: { customer: Custom
     if (!f.name.trim()) errs.name = 'Customer name is required.'
     if (!f.state) errs.state = 'Select the customer\'s state — it decides CGST/SGST vs IGST.'
     if (!f.phone.trim()) errs.phone = 'Phone number is required.'
+    else if (f.phone.startsWith('+') ? f.phone.length < 9 : phoneInput(f.phone).length !== 10) errs.phone = f.phone.startsWith('+') ? 'Enter the full number with its country code.' : 'Enter a 10-digit phone number.'
     if (f.customer_type === 'b2b' && !f.gstin.trim()) errs.gstin = 'GST number is required for B2B customers.'
     else if (f.gstin.trim() && f.gstin.trim().length !== 15) errs.gstin = 'GST number must be exactly 15 letters/digits.'
     setErrors(errs)
@@ -193,13 +195,13 @@ export function CustomerModal({ customer, onClose, onSaved }: { customer: Custom
           </div>
         </div>
         <Field label="Name" required error={errors.name} className="sm:col-span-2"><TextInput autoFocus value={f.name} onChange={set('name')} placeholder="Customer or company name" invalid={!!errors.name} /></Field>
-        <Field label="GST number" required={f.customer_type === 'b2b'} error={errors.gstin} hint={f.customer_type === 'b2b' ? 'Required for B2B customers' : 'Optional for B2C customers'}><TextInput value={f.gstin} onChange={(e) => set('gstin')({ target: { value: e.target.value.toUpperCase() } })} maxLength={15} placeholder="15-character GSTIN" className="num uppercase" invalid={!!errors.gstin} /></Field>
+        <Field label="GST number" required={f.customer_type === 'b2b'} error={errors.gstin} hint={f.customer_type === 'b2b' ? 'Required for B2B customers' : 'Optional for B2C customers'}><TextInput value={f.gstin} onChange={(e) => { const gstin = gstinInput(e.target.value); const st = stateFromGstin(gstin, meta?.states); setF((p) => ({ ...p, gstin, ...(st ? { state: st } : {}) })); setErrors((p) => ({ ...p, gstin: '', state: '' })) }} maxLength={15} placeholder="15-character GSTIN" className="num uppercase" invalid={!!errors.gstin} autoCapitalize="characters" /></Field>
         <Field label="State" required error={errors.state}><Select value={f.state} onChange={set('state')} invalid={!!errors.state}><option value="">Select state…</option>{meta?.states.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}</Select></Field>
-        <Field label="Phone" required error={errors.phone} hint="Used to send invoices on WhatsApp"><TextInput value={f.phone} onChange={set('phone')} inputMode="tel" placeholder="98765 43210" invalid={!!errors.phone} /></Field>
+        <Field label="Phone" required error={errors.phone} hint="10 digits. A foreign customer: start with + and the country code"><TextInput value={f.phone} onChange={(e) => set('phone')({ target: { value: customerPhoneInput(e.target.value) } })} inputMode="tel" maxLength={16} placeholder="9876543210" className="num" invalid={!!errors.phone} /></Field>
         <Field label="Email" error={errors.email} hint="Optional — needed only to email invoices"><TextInput type="email" value={f.email} onChange={set('email')} placeholder="name@company.com" invalid={!!errors.email} /></Field>
         <Field label="Address" className="sm:col-span-2" error={errors.address}><Textarea rows={2} value={f.address} onChange={set('address')} placeholder="Street address" /></Field>
         <Field label="City" error={errors.city}><TextInput value={f.city} onChange={set('city')} /></Field>
-        <Field label="Pincode" error={errors.pincode}><TextInput value={f.pincode} onChange={set('pincode')} inputMode="numeric" maxLength={6} className="num" invalid={!!errors.pincode} /></Field>
+        <Field label="Pincode" error={errors.pincode}><TextInput value={f.pincode} onChange={(e) => set('pincode')({ target: { value: e.target.value.replace(/\D/g, '').slice(0, 6) } })} inputMode="numeric" maxLength={6} className="num" invalid={!!errors.pincode} /></Field>
         <button type="submit" className="hidden" />
       </form>
     </Modal>

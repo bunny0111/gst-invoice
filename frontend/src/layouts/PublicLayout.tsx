@@ -39,27 +39,27 @@ export default function PublicLayout() {
   return (
     <div className="min-h-screen">
       <header className={`sticky top-0 z-40 transition-all duration-300 ${scrolled ? 'border-b border-line bg-canvas/80 backdrop-blur-xl' : 'border-b border-transparent'}`}>
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
+        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-2 px-4 sm:px-8">
           <Link to="/" aria-label="GST Billing home"><Logo /></Link>
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-1 lg:flex">
             {LINKS.map((l) => (
               <a key={l.href} href={l.href} onClick={(e) => jump(e, l.href, pathname)} className="rounded-lg px-3.5 py-2 text-sm font-semibold text-ink-2 transition hover:bg-brand-soft hover:text-brand-ink">
                 {l.label}
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
             <ThemeToggle className="hidden sm:grid" />
             <LinkButton to="/login" variant="ghost" size="sm" className="max-sm:!hidden">Log in</LinkButton>
             <LinkButton to="/register" size="sm">Start free</LinkButton>
-            <button onClick={() => setOpen((o) => !o)} aria-label="Menu" className="grid size-10 place-items-center rounded-xl border border-line bg-surface md:hidden">
+            <button onClick={() => setOpen((o) => !o)} aria-label="Menu" className="grid size-10 place-items-center rounded-xl border border-line bg-surface lg:hidden">
               {open ? <X className="size-5" /> : <Menu className="size-5" />}
             </button>
           </div>
         </div>
         <AnimatePresence>
           {open && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-line bg-canvas/95 backdrop-blur-xl md:hidden">
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden border-t border-line bg-canvas/95 backdrop-blur-xl lg:hidden">
               <div className="space-y-1 px-5 py-4">
                 {LINKS.map((l) => (
                   <a key={l.href} href={l.href} onClick={(e) => { jump(e, l.href, pathname); setOpen(false) }} className="block rounded-lg px-3 py-2.5 text-sm font-semibold text-ink-2 hover:bg-brand-soft">{l.label}</a>

@@ -57,3 +57,42 @@ class NormalizeLogoTests(SimpleTestCase):
     def test_corrupt_data_is_a_clean_validation_error(self):
         with self.assertRaises(serializers.ValidationError):
             normalize_logo(io.BytesIO(b"definitely not an image"))
+
+
+class ProfileRuleTests(SimpleTestCase):
+    """Business profile checks added with the changes list: 10-digit phone, GSTIN state, website, UPI, prefix."""
+
+    BASE = {"business_name": "Sharma Furniture", "state": "DL", "address_line1": "12 Nehru Place", "city": "New Delhi",
+            "pincode": "110019", "phone": "9876543210"}
+
+    def check(self, **data):
+        from .serializers import BusinessProfileSerializer
+
+        ser = BusinessProfileSerializer(data={**self.BASE, **data})
+        ser.is_valid()
+        return ser
+
+    def test_phone_is_ten_digits(self):
+        self.assertEqual(self.check(phone="+91 98765 43210").validated_data["phone"], "9876543210")
+        self.assertIn("phone", self.check(phone="98765").errors)
+        self.assertIn("phone", self.check(phone="987654321099").errors)
+
+    def test_gstin_state_code_must_match_the_business_state(self):
+        self.assertNotIn("gstin", self.check(gstin="07AABCS1234F1Z5").errors)
+        self.assertIn("gstin", self.check(gstin="27AABCS1234F1Z5").errors)
+
+    def test_website_gets_a_scheme(self):
+        self.assertEqual(self.check(website="sharmafurniture.in").validated_data["website"], "https://sharmafurniture.in")
+        self.assertIn("website", self.check(website="not a website").errors)
+
+    def test_upi_id_format(self):
+        self.assertNotIn("upi_id", self.check(upi_id="sharma.furniture@okhdfcbank").errors)
+        self.assertIn("upi_id", self.check(upi_id="sharma furniture").errors)
+
+    def test_prefix_length_depends_on_the_numbering_format(self):
+        self.assertIn("invoice_prefix", self.check(invoice_prefix="SHARMA").errors)  # SHARMA/2026-27/001 > 16 chars
+        self.assertNotIn("invoice_prefix", self.check(invoice_prefix="SHARMA", invoice_number_format="running").errors)
+
+    def test_default_gst_rate_must_be_a_current_slab(self):
+        self.assertIn("default_gst_rate", self.check(default_gst_rate="12").errors)
+        self.assertNotIn("default_gst_rate", self.check(default_gst_rate="5").errors)

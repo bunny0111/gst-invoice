@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
 
-from common.gst import STATE_CHOICES
+from common.gst import ACCOUNT_TYPES, BUSINESS_NATURES, BUSINESS_TYPES, GST_RATE_CHOICES, STATE_CHOICES
 
 User = get_user_model()
 
@@ -49,21 +49,59 @@ class BusinessProfile(models.Model):
     phone = models.CharField(max_length=15, blank=True)
     email = models.EmailField(blank=True)
     logo_image = models.ForeignKey(LogoImage, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    website = models.URLField(max_length=200, blank=True)
+    business_type = models.CharField(max_length=20, blank=True, choices=BUSINESS_TYPES)  # legal form (constitution)
+    business_nature = models.CharField(max_length=20, blank=True, choices=BUSINESS_NATURES)  # what the business does
+    signatory_name = models.CharField("Authorised signatory", max_length=150, blank=True)
+    signature_image = models.ForeignKey(LogoImage, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
 
     bank_name = models.CharField(max_length=100, blank=True)
+    bank_branch = models.CharField(max_length=100, blank=True)
+    account_type = models.CharField(max_length=20, blank=True, choices=ACCOUNT_TYPES)
     account_holder_name = models.CharField(max_length=150, blank=True)
     account_number = models.CharField(max_length=30, blank=True)
     ifsc_code = models.CharField(max_length=11, blank=True)
+    upi_id = models.CharField("UPI ID", max_length=100, blank=True)
+    payment_qr_image = models.ForeignKey(LogoImage, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+                                         help_text="Uploaded payment QR. Without one, a UPI QR is generated from upi_id.")
+    payment_instructions = models.TextField(blank=True)
 
     invoice_prefix = models.CharField(max_length=10, default="INV", help_text="e.g. TC, INV, GST")
+    invoice_number_format = models.CharField(max_length=10, default="fy", choices=[
+        ("fy", "PREFIX/2026-27/001 - restarts every financial year"), ("running", "PREFIX-0001 - one running series")])
+    default_gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=18, choices=GST_RATE_CHOICES)
     default_payment_terms = models.PositiveIntegerField(default=30, help_text="Days until due date")
     default_notes = models.TextField(blank=True)
     default_terms = models.TextField(blank=True)
+
+    # Own mail server for "Send to Email" (optional - without it the platform's sender is used).
+    smtp_enabled = models.BooleanField(default=False)
+    smtp_host = models.CharField(max_length=200, blank=True)
+    smtp_port = models.PositiveIntegerField(default=587)
+    smtp_security = models.CharField(max_length=10, default="starttls", choices=[
+        ("starttls", "STARTTLS (port 587)"), ("ssl", "SSL/TLS (port 465)"), ("none", "None")])
+    smtp_username = models.CharField(max_length=200, blank=True)
+    smtp_password = models.TextField(blank=True, help_text="Encrypted with the server's SECRET_KEY - see common/crypto.py")
+    smtp_from_email = models.EmailField(blank=True)
+    smtp_from_name = models.CharField(max_length=100, blank=True)
 
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
         return self.business_name
+
+    @property
+    def is_gst_registered(self) -> bool:
+        """No GSTIN = not registered: such a business may not charge GST and issues a Bill of Supply."""
+        return bool(self.gstin)
+
+    @property
+    def signature_url(self) -> str | None:
+        return f"/api/logo/{self.signature_image_id}/" if self.signature_image_id else None
+
+    @property
+    def payment_qr_url(self) -> str | None:
+        return f"/api/logo/{self.payment_qr_image_id}/" if self.payment_qr_image_id else None
 
     @property
     def logo_url(self) -> str | None:

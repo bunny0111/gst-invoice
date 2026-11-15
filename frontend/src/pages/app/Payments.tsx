@@ -82,7 +82,7 @@ export default function Payments() {
             action={!filtered && <LinkButton to="/invoices?status=pending" size="sm">Go to unpaid invoices</LinkButton>} />
         ) : (
           <>
-          <ul className={clsx('divide-y divide-line md:hidden', list.isPlaceholderData && 'opacity-60')}>
+          <ul className={clsx('divide-y divide-line xl:hidden', list.isPlaceholderData && 'opacity-60')}>
             {rows.map((p) => (
               <li key={p.id} className="px-4 py-4">
                 <div className="flex items-start justify-between gap-3">
@@ -107,7 +107,7 @@ export default function Payments() {
               </li>
             ))}
           </ul>
-          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity md:block', list.isPlaceholderData && 'opacity-60')}>
+          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity xl:block', list.isPlaceholderData && 'opacity-60')}>
             <table className="w-full min-w-[960px] text-left text-sm">
               <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-3.5">Receipt</th><th className="px-3">Date</th><th className="px-3">Invoice</th><th className="px-3">Customer</th><th className="px-3">Mode</th><th className="px-3">Reference</th><th className="px-3 text-right">Amount</th><th className="px-5 text-right">Actions</th>

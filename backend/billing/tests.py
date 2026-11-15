@@ -160,6 +160,56 @@ class CustomerRuleTests(SimpleTestCase):
         self.assertEqual(self.check(phone="9811111111", gstin=self.GSTIN).validated_data["customer_type"], "b2b")
         self.assertEqual(self.check(phone="9811111111").validated_data["customer_type"], "b2c")
 
+    def test_phone_is_stored_as_ten_digits(self):
+        for raw in ("9811111111", "98111 11111", "+91 98111-11111", "09811111111", "919811111111"):
+            self.assertEqual(self.check(customer_type="b2c", phone=raw).validated_data["phone"], "9811111111", raw)
+        for bad in ("98111", "981111111122", "0000000000", "+12345", "abcdefghij"):
+            self.assertIn("phone", self.check(customer_type="b2c", phone=bad).errors, bad)
+
+    def test_foreign_customer_keeps_country_code(self):  # export customers
+        self.assertEqual(self.check(customer_type="b2c", phone="+1 202 555 0100").validated_data["phone"], "+12025550100")
+
+    def test_gstin_must_belong_to_the_customers_state(self):
+        self.assertIn("gstin", self.check(customer_type="b2b", phone="9811111111", gstin="27ABCDE1234F1Z5").errors)  # 27 = MH
+        self.assertIn("gstin", self.check(customer_type="b2b", phone="9811111111", gstin="99ABCDE1234F1Z5").errors)  # no state 99
+
+    def test_pincode_cannot_start_with_zero(self):
+        self.assertIn("pincode", self.check(customer_type="b2c", phone="9811111111", pincode="012345").errors)
+        self.assertEqual(self.check(customer_type="b2c", phone="9811111111", pincode="110019").errors, {})
+
+
+class UnregisteredSellerTests(SimpleTestCase):
+    """A business without a GSTIN is not GST-registered: it may not charge GST (it issues a Bill of Supply)."""
+
+    def test_every_line_is_priced_at_zero_gst(self):
+        from .services import _without_gst
+
+        items = _without_gst([{"item_name": "Shirt", "quantity": 1, "unit_price": "1000", "gst_rate": 18},
+                              {"item_name": "Tie", "quantity": 2, "unit_price": "250", "gst_rate": 5}])
+        totals = calc.calculate_invoice(items, calc.INTRA)
+        self.assertEqual([i["gst_rate"] for i in items], [0, 0])
+        self.assertEqual((totals.cgst_amount, totals.sgst_amount, totals.grand_total), (Decimal("0.00"), Decimal("0.00"), Decimal("1500")))
+
+
+class UpiQrTests(SimpleTestCase):
+    def invoice(self, **kw):
+        from types import SimpleNamespace
+        return SimpleNamespace(**{"status": "sent", "balance_due": Decimal("48560.00"), "invoice_number": "SF/2026-27/101", **kw})
+
+    def test_link_asks_for_the_balance_due(self):
+        from .pdf import upi_payment_link
+
+        link = upi_payment_link({"upi_id": "shop@okhdfcbank", "business_name": "Sharma Furniture"}, self.invoice())
+        self.assertEqual(link, "upi://pay?pa=shop@okhdfcbank&pn=Sharma%20Furniture&am=48560.00&cu=INR&tn=Invoice%20SF/2026-27/101")
+
+    def test_no_link_when_nothing_is_owed(self):
+        from .pdf import upi_payment_link
+
+        seller = {"upi_id": "shop@okhdfcbank", "business_name": "Sharma"}
+        for kw in ({"status": "paid"}, {"status": "cancelled"}, {"balance_due": Decimal("0")}):
+            self.assertIsNone(upi_payment_link(seller, self.invoice(**kw)), kw)
+        self.assertIsNone(upi_payment_link({"business_name": "No UPI"}, self.invoice()))
+
 
 # --------------------------------------------------------------------------- sharing
 class SharingTests(SimpleTestCase):

@@ -19,7 +19,7 @@ class Customer(models.Model):
                                      help_text="B2B customers must have a GSTIN; it is optional for B2C")
     gstin = models.CharField("GSTIN", max_length=15, blank=True)
     email = models.EmailField(blank=True, help_text="Optional")
-    phone = models.CharField(max_length=15, blank=True, help_text="Mandatory for new/edited customers (enforced in the API)")
+    phone = models.CharField(max_length=16, blank=True, help_text="Mandatory for new/edited customers (enforced in the API)")
     address = models.TextField(blank=True)
     city = models.CharField(max_length=100, blank=True)
     pincode = models.CharField(max_length=6, blank=True)

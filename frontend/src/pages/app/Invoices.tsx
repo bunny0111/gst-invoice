@@ -79,7 +79,7 @@ export default function Invoices() {
             action={!dq && !status && !atLimit && <LinkButton to="/invoices/new" icon={<Plus className="size-4" />}>Create first invoice</LinkButton>} />
         ) : (
           <>
-          <ul className={clsx('divide-y divide-line md:hidden', list.isPlaceholderData && 'opacity-60')}>
+          <ul className={clsx('divide-y divide-line xl:hidden', list.isPlaceholderData && 'opacity-60')}>
             {rows.map((r) => (
               <li key={r.id}>
                 <Link to={`/invoices/${r.id}`} className="block px-4 py-4 transition-colors active:bg-surface-2">
@@ -104,7 +104,7 @@ export default function Invoices() {
               </li>
             ))}
           </ul>
-          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity md:block', list.isPlaceholderData && 'opacity-60')}>
+          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity xl:block', list.isPlaceholderData && 'opacity-60')}>
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-3.5">Invoice</th><th className="px-3">Customer</th><th className="px-3">Date</th><th className="px-3">Due</th><th className="px-3 text-right">Amount</th><th className="px-3 text-right">Balance</th><th className="px-3">Status</th><th className="w-10" />

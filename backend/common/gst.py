@@ -66,14 +66,48 @@ def rate_label(rate) -> str:
     rate = Decimal(rate)
     return f"{rate.normalize():f}%"
 
-UNITS = [
-    ("pcs", "Pieces"), ("nos", "Numbers"), ("kg", "Kilograms"), ("g", "Grams"),
-    ("ltr", "Litres"), ("ml", "Millilitres"), ("mtr", "Metres"), ("sqft", "Sq. Feet"),
-    ("sqm", "Sq. Metres"), ("box", "Boxes"), ("pack", "Packs"), ("set", "Sets"),
-    ("pair", "Pairs"), ("dozen", "Dozens"), ("hrs", "Hours"), ("days", "Days"),
-    ("month", "Months"), ("job", "Job / Service"),
+# Units of measurement: (code printed on the invoice, name, group, GST UQC).
+# UQC = the GST "Unit Quantity Code" GSTR-1 / e-invoices expect; units the GST list doesn't have map to OTH (Others).
+# Codes are stored on products and invoice lines, so existing ones (pcs, kg, mtr, ...) must never change.
+UNIT_DETAILS = [
+    # count
+    ("pcs", "Pieces", "Count", "PCS"), ("nos", "Numbers", "Count", "NOS"), ("unt", "Units", "Count", "UNT"),
+    ("set", "Sets", "Count", "SET"), ("pair", "Pairs", "Count", "PRS"), ("dozen", "Dozens", "Count", "DOZ"),
+    ("gross", "Gross (144)", "Count", "GRS"), ("thd", "Thousands", "Count", "THD"),
+    # packaging
+    ("box", "Boxes", "Packaging", "BOX"), ("pack", "Packs", "Packaging", "PAC"), ("ctn", "Cartons", "Packaging", "CTN"),
+    ("bag", "Bags", "Packaging", "BAG"), ("btl", "Bottles", "Packaging", "BTL"), ("can", "Cans", "Packaging", "CAN"),
+    ("jar", "Jars", "Packaging", "OTH"), ("drum", "Drums", "Packaging", "DRM"), ("bdl", "Bundles", "Packaging", "BDL"),
+    ("roll", "Rolls", "Packaging", "ROL"), ("tube", "Tubes", "Packaging", "TUB"), ("strip", "Strips", "Packaging", "OTH"),
+    ("tab", "Tablets", "Packaging", "TBS"), ("bale", "Bales", "Packaging", "BAL"), ("bunch", "Bunches", "Packaging", "BUN"),
+    ("sheet", "Sheets", "Packaging", "OTH"), ("ream", "Reams", "Packaging", "OTH"),
+    # weight
+    ("mg", "Milligrams", "Weight", "OTH"), ("g", "Grams", "Weight", "GMS"), ("kg", "Kilograms", "Weight", "KGS"),
+    ("qtl", "Quintals", "Weight", "QTL"), ("ton", "Tonnes (metric tons)", "Weight", "TON"),
+    ("ct", "Carats", "Weight", "OTH"),
+    # volume
+    ("ml", "Millilitres", "Volume", "MLT"), ("ltr", "Litres", "Volume", "LTR"), ("kl", "Kilolitres", "Volume", "KLR"),
+    ("cc", "Cubic centimetres", "Volume", "CCM"), ("cbm", "Cubic metres", "Volume", "CBM"),
+    ("cft", "Cubic feet", "Volume", "OTH"), ("gal", "Gallons (US)", "Volume", "UGS"),
+    # length
+    ("mm", "Millimetres", "Length", "OTH"), ("cm", "Centimetres", "Length", "CMS"), ("inch", "Inches", "Length", "OTH"),
+    ("ft", "Feet", "Length", "OTH"), ("yd", "Yards", "Length", "YDS"), ("mtr", "Metres", "Length", "MTR"),
+    ("km", "Kilometres", "Length", "KME"),
+    # area
+    ("sqin", "Square inches", "Area", "OTH"), ("sqft", "Square feet", "Area", "SQF"), ("sqyd", "Square yards", "Area", "SQY"),
+    ("sqm", "Square metres", "Area", "SQM"), ("acre", "Acres", "Area", "OTH"),
+    # time & services
+    ("min", "Minutes", "Time & services", "OTH"), ("hrs", "Hours", "Time & services", "OTH"),
+    ("days", "Days", "Time & services", "OTH"), ("week", "Weeks", "Time & services", "OTH"),
+    ("month", "Months", "Time & services", "OTH"), ("year", "Years", "Time & services", "OTH"),
+    ("job", "Job / Service", "Time & services", "OTH"), ("visit", "Visits", "Time & services", "OTH"),
+    ("person", "Persons", "Time & services", "OTH"), ("trip", "Trips", "Time & services", "OTH"),
+    # energy & other
+    ("kwh", "Kilowatt-hours", "Other", "OTH"), ("oth", "Others", "Other", "OTH"),
 ]
+UNITS = [(code, name) for code, name, _, _ in UNIT_DETAILS]
 UNIT_CODES = [u for u, _ in UNITS]
+UNIT_UQC = {code: uqc for code, _, _, uqc in UNIT_DETAILS}
 
 PAYMENT_MODES = [("cash", "Cash"), ("upi", "UPI"), ("bank_transfer", "Bank Transfer"), ("cheque", "Cheque")]
 
@@ -88,3 +122,59 @@ def is_valid_gstin(value: str) -> bool:
 def is_valid_pan(value: str) -> bool:
     """PRD US-02 AC3: exactly 10 characters."""
     return len(value) == 10 and bool(_ALNUM.match(value))
+
+
+# --------------------------------------------------------------------------- business / bank reference lists
+BUSINESS_TYPES = [
+    ("proprietorship", "Proprietorship"), ("partnership", "Partnership"), ("llp", "Limited Liability Partnership (LLP)"),
+    ("private_limited", "Private Limited Company"), ("public_limited", "Public Limited Company"),
+    ("opc", "One Person Company (OPC)"), ("huf", "Hindu Undivided Family (HUF)"),
+    ("trust_society", "Trust / Society / NGO"), ("other", "Other"),
+]
+# "Nature of business activity" on a GST registration - what the business does (the list above is its legal form)
+BUSINESS_NATURES = [
+    ("retailer", "Retailer / shop"), ("wholesaler", "Wholesaler / distributor"), ("manufacturer", "Manufacturer"),
+    ("service_provider", "Service provider"), ("trader", "Trader"), ("contractor", "Works contractor"),
+    ("ecommerce", "E-commerce seller"), ("freelancer", "Freelancer / consultant"), ("other", "Other"),
+]
+ACCOUNT_TYPES = [("savings", "Savings"), ("current", "Current"), ("cash_credit", "Cash Credit"), ("overdraft", "Overdraft")]
+
+_GST_STATE_CODES = {gst: code for code, _, gst in STATES}
+
+
+def gstin_state(value: str) -> str | None:
+    """The 2-letter state a GSTIN was issued in (its first two digits), or None if they aren't a real state code."""
+    return _GST_STATE_CODES.get(value[:2]) if value else None
+
+
+def normalize_phone(value: str) -> str | None:
+    """An Indian phone number as exactly 10 digits, or None if it isn't one.
+    Spaces/dashes and a leading +91, 91 or 0 are dropped: '+91 98765-43210' -> '9876543210'."""
+    digits = re.sub(r"[\s\-()]", "", value or "")
+    if digits.startswith("+"):
+        digits = digits[1:]
+        if not digits.startswith("91"):
+            return None
+    if not digits.isdigit():
+        return None
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    elif len(digits) == 11 and digits.startswith("0"):
+        digits = digits[1:]
+    if len(digits) != 10 or digits[0] == "0" or len(set(digits)) == 1:
+        return None
+    return digits
+
+
+def normalize_international_phone(value: str) -> str | None:
+    """A foreign number written with its country code ('+971 50 123 4567' -> '+971501234567'), or None.
+    Only for customers (export invoices); +91 numbers go through normalize_phone() instead."""
+    raw = re.sub(r"[\s\-()]", "", value or "")
+    if not raw.startswith("+") or raw.startswith("+91") or not raw[1:].isdigit():
+        return None
+    return raw if 8 <= len(raw) - 1 <= 15 and raw[1] != "0" else None  # E.164: at most 15 digits
+
+
+def is_valid_pincode(value: str) -> bool:
+    """Indian PIN codes are 6 digits and never start with 0."""
+    return bool(re.fullmatch(r"[1-9]\d{5}", value or ""))

@@ -56,3 +56,26 @@ export function calcInvoice(items: LineIn[], supply: Supply): Totals {
   const grand = raw.toDecimalPlaces(0, Decimal.ROUND_HALF_UP) // nearest rupee (AC10)
   return { subtotal: sum((l) => l.gross), discount: sum((l) => l.discount), taxable, cgst, sgst, igst, roundOff: grand.sub(raw), grand, lines }
 }
+
+/** Phone fields take digits only, at most 10 (the server stores Indian numbers as exactly 10 digits). */
+export const phoneInput = (v: string) => v.replace(/\D/g, '').slice(0, 10)
+
+/** Customer phone: an Indian number (10 digits), or a foreign one typed with "+" and its country code (export
+ *  customers) - then up to 15 digits after the "+". */
+export function customerPhoneInput(v: string): string {
+  const t = v.trim()
+  if (!t.startsWith('+') || t.replace(/\D/g, '').startsWith('91')) return phoneInput(t.startsWith('+91') ? t.slice(3) : t)
+  return '+' + t.replace(/\D/g, '').slice(0, 15)
+}
+
+/** GSTIN fields: uppercase letters/digits only, at most 15. */
+export const gstinInput = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15)
+
+/** The state a GSTIN belongs to - its first two digits are the GST state code (07 = Delhi). */
+export function stateFromGstin(gstin: string, states: { code: string; gst_code: string }[] | undefined): string | undefined {
+  if (!states || gstin.length < 2) return undefined
+  return states.find((s) => s.gst_code === gstin.slice(0, 2))?.code
+}
+
+/** Characters 3-12 of a GSTIN are the holder's PAN. */
+export const panFromGstin = (gstin: string) => (gstin.length === 15 ? gstin.slice(2, 12) : '')

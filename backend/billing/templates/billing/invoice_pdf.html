@@ -68,6 +68,13 @@
   .ids td + td { border-left: 1px solid #b9b3ee; }
   .sign td { padding: 8px 12px; vertical-align: bottom; height: 72px; }
   .sign td + td { border-left: 1px solid #b9b3ee; text-align: right; width: 42%; }
+  .sign .signature { display: block; margin: 4px 0 2px auto; max-height: 40px; max-width: 150px; }
+  .sign .signer { color: #1e1b3a; font-size: 8.3pt; }
+  .upi { width: 100%; border-collapse: collapse; }
+  .upi td { border: 0 !important; padding: 0; vertical-align: top; font-size: 8.3pt; }
+  .upi td.qr { width: 92px; padding-right: 10px; }
+  .upi td.qr img { width: 86px; height: 86px; object-fit: contain; }
+  .upi .instr { margin-top: 3px; color: #3d3a5c; }
   .sign .line { display: inline-block; min-width: 170px; border-top: 1px solid #1e1b3a; padding-top: 3px; font-size: 7.8pt; color: #6b6890; text-align: center; }
   .decl { font-size: 7.3pt; color: #6b6890; }
 
@@ -88,12 +95,14 @@
       <div class="muted">
         {{ seller.address_line1 }}{% if seller.address_line2 %}, {{ seller.address_line2 }}{% endif %}, {{ seller.city }}, {{ seller.state_name }} - {{ seller.pincode }}<br>
         {% if seller.phone %}Ph: {{ seller.phone }}{% endif %}{% if seller.phone and seller.email %} &nbsp;|&nbsp; {% endif %}{% if seller.email %}{{ seller.email }}{% endif %}
+        {% if seller.website %}<br>{{ seller.website|cut:"https://"|cut:"http://" }}{% endif %}
       </div>
     </td>
     {% if logo %}<td style="width:22%"></td>{% endif %}
   </tr></table>
 
-  <div class="banner">TAX INVOICE<small>{% if is_export %}Export / SEZ &mdash; zero-rated supply (under LUT){% elif is_intra %}Intra-state supply &middot; CGST + SGST{% else %}Inter-state supply &middot; IGST{% endif %}</small></div>
+  {% if not registered %}<div class="banner">BILL OF SUPPLY<small>Supplier not registered under GST &middot; no GST charged</small></div>
+  {% else %}<div class="banner">TAX INVOICE<small>{% if is_export %}Export / SEZ &mdash; zero-rated supply (under LUT){% elif is_intra %}Intra-state supply &middot; CGST + SGST{% else %}Inter-state supply &middot; IGST{% endif %}</small></div>{% endif %}
 
   <!-- buyer / invoice details -->
   <table class="two"><tr>
@@ -137,7 +146,7 @@
         <td class="r">{{ item.quantity|trim_zero }} {{ item.unit }}</td>
         <td class="r">{{ item.unit_price|inr }}</td>
         <td class="r">{% if item.discount_amount %}{{ item.discount_amount|inr }}<div class="item-desc">({{ item.discount_percent|trim_zero }}%)</div>{% else %}—{% endif %}</td>
-        <td class="tax-cell">{% if is_export %}Zero-rated{% elif is_intra %}CGST @{{ item.cgst_rate|trim_zero }}%<br>SGST @{{ item.sgst_rate|trim_zero }}%{% else %}IGST @{{ item.igst_rate|trim_zero }}%{% endif %}</td>
+        <td class="tax-cell">{% if not registered %}No GST{% elif is_export %}Zero-rated{% elif is_intra %}CGST @{{ item.cgst_rate|trim_zero }}%<br>SGST @{{ item.sgst_rate|trim_zero }}%{% else %}IGST @{{ item.igst_rate|trim_zero }}%{% endif %}</td>
         <td class="r"><b>{{ item.line_total|inr }}</b></td>
       </tr>
     {% endfor %}
@@ -152,13 +161,26 @@
         <div class="label">Bank details</div>
         <table class="kv">
           {% if seller.account_holder_name %}<tr><td>A/c holder</td><td>:</td><td>{{ seller.account_holder_name }}</td></tr>{% endif %}
-          {% if seller.bank_name %}<tr><td>Bank</td><td>:</td><td>{{ seller.bank_name }}</td></tr>{% endif %}
-          {% if seller.account_number %}<tr><td>A/c number</td><td>:</td><td>{{ seller.account_number }}</td></tr>{% endif %}
+          {% if seller.bank_name %}<tr><td>Bank</td><td>:</td><td>{{ seller.bank_name }}{% if seller.bank_branch %}, {{ seller.bank_branch }}{% endif %}</td></tr>{% endif %}
+          {% if seller.account_number %}<tr><td>A/c number</td><td>:</td><td>{{ seller.account_number }}{% if account_type %} ({{ account_type }}){% endif %}</td></tr>{% endif %}
           {% if seller.ifsc_code %}<tr><td>IFSC</td><td>:</td><td>{{ seller.ifsc_code }}</td></tr>{% endif %}
         </table>
       </div>
       {% endif %}
+      {% if payment_qr or seller.upi_id or seller.payment_instructions %}
       <div class="pad">
+        <div class="label">Pay {% if payment_qr or seller.upi_id %}by UPI{% else %}instructions{% endif %}</div>
+        <table class="upi"><tr>
+          {% if payment_qr %}<td class="qr"><img src="{{ payment_qr }}" alt="UPI QR code"></td>{% endif %}
+          <td>
+            {% if seller.upi_id %}<div>UPI ID: <b>{{ seller.upi_id }}</b></div>{% endif %}
+            {% if payment_qr %}<div class="muted">Scan with any UPI app (GPay, PhonePe, Paytm, BHIM).</div>{% endif %}
+            {% if seller.payment_instructions %}<div class="instr">{{ seller.payment_instructions|linebreaksbr }}</div>{% endif %}
+          </td>
+        </tr></table>
+      </div>
+      {% endif %}
+      {% if registered %}<div class="pad">
         <div class="label">Tax summary</div>
         <table class="taxbox">
           <thead><tr><th>GST rate</th><th>Taxable (&#8377;)</th>{% if is_intra %}<th>CGST</th><th>SGST</th>{% elif not is_export %}<th>IGST</th>{% endif %}</tr></thead>
@@ -168,7 +190,7 @@
           {% endfor %}
           </tbody>
         </table>
-      </div>
+      </div>{% endif %}
       {% if invoice.notes %}<div class="pad"><div class="label">Notes</div>{{ invoice.notes|linebreaksbr }}</div>{% endif %}
     </td>
     <td style="width:44%">
@@ -176,7 +198,8 @@
         <tr><td>Subtotal</td><td>&#8377; {{ invoice.subtotal|inr }}</td></tr>
         {% if invoice.discount_total %}<tr><td>Discount</td><td>- &#8377; {{ invoice.discount_total|inr }}</td></tr>{% endif %}
         <tr class="sep"><td><b>Taxable amount</b></td><td>&#8377; {{ invoice.taxable_amount|inr }}</td></tr>
-        {% if is_intra %}
+        {% if not registered %}
+        {% elif is_intra %}
           <tr><td>CGST</td><td>&#8377; {{ invoice.cgst_amount|inr }}</td></tr>
           <tr><td>SGST</td><td>&#8377; {{ invoice.sgst_amount|inr }}</td></tr>
         {% elif not is_export %}
@@ -198,12 +221,14 @@
 
   <table class="ids"><tr>
     <td><span class="muted">Customer GSTIN</span> &nbsp;<b>{{ buyer.gstin|default:"—" }}</b></td>
-    <td><span class="muted">Company GSTIN</span> &nbsp;<b>{{ seller.gstin|default:"—" }}</b>{% if seller.pan %}<br><span class="muted">Company PAN</span> &nbsp;<b>{{ seller.pan }}</b>{% endif %}</td>
+    <td><span class="muted">Company GSTIN</span> &nbsp;<b>{% if seller.gstin %}{{ seller.gstin }}{% else %}Not registered under GST{% endif %}</b>{% if seller.pan %}<br><span class="muted">Company PAN</span> &nbsp;<b>{{ seller.pan }}</b>{% endif %}</td>
   </tr></table>
 
   <table class="sign"><tr>
     <td class="decl"><b>Declaration:</b> We declare that this invoice shows the actual price of the goods or services described and that all particulars are true and correct.</td>
-    <td><div class="muted" style="font-size:7.8pt;margin-bottom:34px">For <b>{{ seller.business_name }}</b></div><span class="line">Authorised Signatory</span></td>
+    <td><div class="muted" style="font-size:7.8pt;{% if not signature %}margin-bottom:34px{% endif %}">For <b>{{ seller.business_name }}</b></div>
+      {% if signature %}<img class="signature" src="{{ signature }}" alt="">{% endif %}
+      <span class="line">{% if seller.signatory_name %}<b class="signer">{{ seller.signatory_name }}</b><br>{% endif %}Authorised Signatory</span></td>
   </tr></table>
 
 </div>

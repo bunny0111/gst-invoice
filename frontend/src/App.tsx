@@ -21,7 +21,7 @@ import Subscription from './pages/app/Subscription'
 import FindBusiness from './pages/public/FindBusiness'
 import Landing from './pages/public/Landing'
 import Register from './pages/public/Register'
-import { ensureCsrf } from './lib/api'
+import { ApiError, ensureCsrf } from './lib/api'
 import { useMe, useTenantInfo } from './lib/hooks'
 import { useNoIndex } from './lib/seo'
 import { useTheme } from './lib/theme'
@@ -33,7 +33,9 @@ export default function App() {
 
   let body
   if (tenant.isLoading) {
-    body = <div className="grid min-h-screen place-items-center"><div className="flex flex-col items-center gap-5"><Logo /><PageLoader /></div></div>
+    body = <div className="grid min-h-screen place-items-center"><div className="flex flex-col items-center gap-5"><Logo /><PageLoader slowHint /></div></div>
+  } else if (tenant.isError && !(tenant.error instanceof ApiError && tenant.error.status === 404)) {
+    body = <ServerUnreachable onRetry={() => tenant.refetch()} />
   } else if (tenant.isError || !tenant.data) {
     body = <WorkspaceNotFound />
   } else if (tenant.data.is_public) {
@@ -78,7 +80,8 @@ function TenantRoutes() {
     return () => window.removeEventListener('gst:unauthorized', out)
   }, [qc])
 
-  if (me.isLoading) return <PageLoader />
+  if (me.isLoading) return <div className="grid min-h-screen place-items-center"><div className="flex flex-col items-center gap-5"><Logo /><PageLoader slowHint /></div></div>
+  if (me.isError) return <ServerUnreachable onRetry={() => me.refetch()} />  // NOT a logout - the session is fine
   const authed = !!me.data
   const guest = (el: ReactElement) => (authed ? <Navigate to="/" replace /> : el)
 
@@ -128,6 +131,19 @@ function Disabled() {
         <div className="mb-8 flex justify-center"><Logo /></div>
         <h1 className="font-display text-3xl font-extrabold text-ink">This workspace is disabled</h1>
         <p className="mt-3 text-muted">Please contact info@techcognixium.com to get it re-activated.</p>
+      </div>
+    </div>
+  )
+}
+
+function ServerUnreachable({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="grid min-h-screen place-items-center px-6 text-center">
+      <div className="max-w-sm">
+        <div className="mb-8 flex justify-center"><Logo /></div>
+        <h1 className="font-display text-2xl font-extrabold text-ink">Can't reach GST Billing</h1>
+        <p className="mt-2 text-sm text-ink-2">Check your internet connection. If it's working, the server may still be starting up — try again in a few seconds. You're still signed in.</p>
+        <Button className="mt-6" onClick={onRetry}>Try again</Button>
       </div>
     </div>
   )

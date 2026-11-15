@@ -15,6 +15,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <div className="bg-grid-pattern-invert absolute inset-0" />
         <div className="relative"><Logo light /></div>
         <div className="relative">
+          {tenant?.logo_url && <img src={tenant.logo_url} alt={`${tenant.name} logo`} className="mb-6 max-h-20 max-w-60 rounded-xl bg-white p-2.5 object-contain shadow-lg" />}
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-white/60">Your workspace</p>
           <h2 className="mt-3 font-display text-5xl font-extrabold leading-[1.1]">{tenant?.name ?? 'Welcome back'}</h2>
           <ul className="mt-10 space-y-4 text-[15px] text-white/85">
@@ -28,7 +29,14 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <main className="relative grid place-items-center px-5 py-12 sm:px-10">
         <ThemeToggle className="absolute right-5 top-5" />
         <div className="w-full max-w-md">
-          <div className="mb-10 lg:hidden"><Logo /></div>
+          <div className="mb-10 lg:hidden">
+            {tenant?.logo_url || tenant?.name ? (
+              <div className="flex items-center gap-3.5">
+                {tenant.logo_url && <img src={tenant.logo_url} alt="" className="max-h-14 max-w-32 shrink-0 rounded-lg object-contain" />}
+                <div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Your workspace</p><p className="font-display text-xl font-extrabold leading-tight text-ink">{tenant.name}</p></div>
+              </div>
+            ) : <Logo />}
+          </div>
           {children}
           <InstallApp className="mt-6" />
           <p className="mt-10 text-center lg:hidden"><PoweredBy /></p>

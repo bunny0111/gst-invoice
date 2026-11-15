@@ -46,7 +46,7 @@ function HeroInvoice() {
         initial={{ opacity: 0, y: 40, rotate: 6 }} animate={{ opacity: 1, y: 0, rotate: 2.5 }} transition={{ duration: 0.9, delay: 0.2, ease: 'easeOut' }}
         className="animate-float-slow relative"
       >
-        <div className="card relative overflow-hidden p-6 shadow-pop">
+        <div className="card relative overflow-hidden p-5 pt-11 shadow-pop sm:p-6">
           <div className="absolute inset-x-0 top-0 h-1.5 gradient-brand" />
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -64,7 +64,7 @@ function HeroInvoice() {
           <div className="mt-5 overflow-hidden rounded-xl border border-line text-[13px]">
             <div className="grid grid-cols-[1fr_auto] bg-brand-soft px-3.5 py-2 text-[11px] font-bold uppercase tracking-wider text-brand-ink"><span>Item</span><span>Amount</span></div>
             {[['LED Monitor 24" × 2', '₹18,000.00'], ['HDMI Cable × 1', '₹250.50']].map(([a, b]) => (
-              <div key={a} className="grid grid-cols-[1fr_auto] border-t border-line px-3.5 py-2.5 text-ink-2"><span>{a}</span><span className="num font-semibold text-ink">{b}</span></div>
+              <div key={a} className="grid grid-cols-[1fr_auto] gap-3 border-t border-line px-3.5 py-2.5 text-ink-2"><span>{a}</span><span className="num font-semibold text-ink">{b}</span></div>
             ))}
           </div>
           <div className="mt-4 space-y-1.5 text-[13px]">
@@ -79,7 +79,7 @@ function HeroInvoice() {
         </div>
         <motion.div
             initial={{ scale: 2.4, opacity: 0, rotate: -30 }} animate={{ scale: 1, opacity: 1, rotate: 10 }} transition={{ delay: 1.3, type: 'spring', damping: 12 }}
-            className="absolute -right-3 -top-3 rounded-lg border-[3px] border-good bg-surface px-3 py-0.5 font-display text-lg font-extrabold tracking-widest text-good shadow-lg"
+            className="absolute -top-3 right-3 rounded-lg border-[3px] sm:-right-3 border-good bg-surface px-3 py-0.5 font-display text-lg font-extrabold tracking-widest text-good shadow-lg"
         >
             PAID
           </motion.div>
@@ -119,7 +119,7 @@ function Hero() {
             The simple, affordable billing app for Indian shopkeepers, freelancers and traders. CGST, SGST and IGST calculated for you — so you can bill, get paid and stop worrying about mistakes.
           </motion.p>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="mt-9 flex flex-wrap items-center gap-4">
-            <LinkButton to="/register" size="lg" icon={<Sparkles className="size-5" />}>Start free — no card needed</LinkButton>
+            <LinkButton to="/register" size="lg" className="max-sm:!px-5" icon={<Sparkles className="size-5" />}>Start free — no card needed</LinkButton>
             <a href="/#calculator" onClick={(e) => { e.preventDefault(); document.getElementById('calculator')?.scrollIntoView({ behavior: 'smooth' }) }} className="group inline-flex items-center gap-2 px-2 py-3 text-[15px] font-bold text-ink-2 transition hover:text-brand-ink">
               Try the GST calculator <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </a>
@@ -269,7 +269,7 @@ function GstCalculator() {
                   </div>
                   <div className="mt-6 border-t border-white/15 pt-5">
                     <p className="text-xs font-semibold uppercase tracking-widest text-white/60">Invoice total</p>
-                    <p className="mt-1 font-display text-5xl font-extrabold tracking-tight">₹{inrPlain(Math.round(Number(r.total.toString())))}</p>
+                    <p className="mt-1 font-display text-[clamp(2.25rem,11vw,3rem)] font-extrabold tracking-tight [overflow-wrap:anywhere]">₹{inrPlain(Math.round(Number(r.total.toString())))}</p>
                     <p className="mt-2 text-xs text-white/60">Rounded to the nearest rupee, just like a real invoice.</p>
                   </div>
                 </motion.div>
@@ -459,7 +459,7 @@ function FinalCta() {
   return (
     <section className="mx-auto max-w-7xl px-5 sm:px-8">
       <Reveal>
-        <div className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#3c27a8_0%,#5b45f0_50%,#a24df0_100%)] px-8 py-16 text-center text-white sm:px-16">
+        <div className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#3c27a8_0%,#5b45f0_50%,#a24df0_100%)] px-5 py-16 text-center text-white sm:px-16">
           <div className="animate-blob absolute -left-20 -top-20 size-72 rounded-full bg-[#ff8a5c]/40 blur-3xl" />
           <div className="animate-blob absolute -bottom-24 -right-16 size-80 rounded-full bg-[#22c98a]/25 blur-3xl [animation-delay:-5s]" />
           <div className="relative">

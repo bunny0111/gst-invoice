@@ -3,8 +3,14 @@ import { useEffect, useRef, useState } from 'react'
 import { ApiError, get } from './api'
 import type { Me, Meta, Profile, Subscription, TenantInfo } from './types'
 
+/** A sleeping server (free hosting) answers the first request slowly or with a 502/503 while it boots - that is not
+ *  "logged out" and not "no such workspace". Keep retrying those for about a minute; give up at once on real answers. */
+const isWakingUp = (e: unknown) => e instanceof ApiError && (e.status === 0 || e.status === 408 || e.status === 429 || e.status >= 500)
+export const wakeRetry = (count: number, e: unknown) => isWakingUp(e) && count < 8
+export const wakeDelay = (attempt: number) => Math.min(1500 * 2 ** attempt, 10_000)
+
 export const useTenantInfo = () =>
-  useQuery({ queryKey: ['tenant'], queryFn: () => get<TenantInfo>('/api/tenant/'), staleTime: Infinity, retry: 1 })
+  useQuery({ queryKey: ['tenant'], queryFn: () => get<TenantInfo>('/api/tenant/'), staleTime: Infinity, retry: wakeRetry, retryDelay: wakeDelay })
 
 /** The logged-in user, or null when signed out (401/403 is not an error here). */
 export function useMe(enabled = true) {
@@ -20,7 +26,8 @@ export function useMe(enabled = true) {
       }
     },
     staleTime: 60_000,
-    retry: false,
+    retry: wakeRetry,
+    retryDelay: wakeDelay,
   })
 }
 

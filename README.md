@@ -52,6 +52,13 @@ The live Razorpay path (order creation, signature check, webhook) is implemented
 
 ## SEO
 
+**On Render** the prerender step doesn't run (no headless browser in the build), so `common/seo.py` does the crawler-facing work on every
+request: absolute `og:url` / `og:image` / canonical URLs (WhatsApp and LinkedIn previews need them), a per-page title and description, JSON-LD
+on the home page, and readable content inside `#root` on `/`, `/register` and `/login` (React replaces it when the app starts). A real
+prerendered snapshot in `dist/` still wins when present. A mistyped workspace address gets a friendly 404 page
+(`DEFAULT_NOT_FOUND_TENANT_VIEW` -> `common.views.workspace_not_found`) instead of a bare "Not Found".
+
+
 The product itself (invoices, dashboard, etc.) sits behind login on private tenant subdomains and is
 deliberately **never indexed** — only the public marketing site (landing + register) is meant to rank.
 
@@ -94,6 +101,29 @@ deliberately **never indexed** — only the public marketing site (landing + reg
   (receipt PDF `PR-xxxxx`). Undoing a payment always asks for confirmation first. Editing re-checks the invoice can't be over-paid and recomputes its status.
 - Plan gating is **not** applied to sharing yet (the pricing table still lists it as Starter/Pro) - one line in `InvoiceViewSet.share/send_email` if you want it.
 
+## Business profile options
+
+- **No GSTIN = Bill of Supply.** A business without a GSTIN is not GST-registered and may not collect GST: every line is priced at 0%,
+  the PDF is titled *Bill of Supply* and shows no tax rows (`billing/services.py::_without_gst`, re-applied at finalize).
+- **Numbering:** prefix + *Restart every financial year* (`INV/2026-27/001`, prefix up to 4) or *One running series* (`INV-0001`, prefix up to 10),
+  and **Next invoice number** to continue from older software - it can only move forward, so a number is never reused (`billing/numbering.py`).
+- **Default GST rate** pre-fills new products and invoice lines. **Website, business type, authorised signatory name and signature image**
+  print on invoices. Logo, signature and payment QR live in the database (`LogoImage`); only the current logo is served without a login.
+- **Bank & payments:** branch, account type, UPI ID, optional uploaded QR, default payment instructions. With a UPI ID (and no uploaded QR)
+  each PDF carries a `upi://pay` QR for the exact balance due.
+- **Email (SMTP):** a business can send invoices from its own address (Gmail / Outlook / Zoho presets, *Send a test email*). The password is
+  stored encrypted with a key derived from `SECRET_KEY` (`common/crypto.py`) - rotating `SECRET_KEY` means re-entering it. Without SMTP,
+  mail goes through the platform sender as before.
+- **Business type** is the legal form (Proprietorship, LLP, Pvt Ltd...); **nature of business** is what it does (Retailer, Wholesaler,
+  Manufacturer, Service provider...) - the two fields a GST registration also has.
+- **Checks:** Indian phone numbers are stored as exactly 10 digits (+91 / 0 prefixes are stripped); a *customer* may instead have a foreign
+  number written with its country code (`+971...`, export customers). A GSTIN's first two digits must be a real state code that matches the
+  chosen state (typing a GSTIN fills in the state and PAN); PIN codes can't start with 0; an invoice can be dated at most 30 days ahead;
+  payments can't be dated in the future or before the invoice; an invoice with payments must have them removed before it can be cancelled.
+  The same customer can't be added twice (same GST number, or same name + phone - a removed one points you to Restore).
+- **Units:** 62 units in groups (count, packaging, weight, volume, length, area, time & services), each mapped to its GST UQC code
+  (`common/gst.py::UNIT_DETAILS`, e.g. cm -> CMS, kg -> KGS; units without a UQC map to OTH) for GSTR-1 / e-invoice exports.
+
 ## Install as an app (PWA)
 
 The site installs to a phone / desktop home screen and opens like an app (no browser bar, no typing the address).
@@ -102,7 +132,7 @@ The site installs to a phone / desktop home screen and opens like an app (no bro
 - **Install button** (`components/ui/InstallApp.tsx`): one tap on Android / desktop Chrome (`beforeinstallprompt`); step-by-step help on iPhone (Safari has no prompt).
 - **Service worker** (`public/sw.js`) is deliberately tiny: it makes the app installable and shows `offline.html` when there is no connection.
   It never caches API calls, PDFs, share links or page HTML (private, per-business data); only the hashed `/assets/*` build files are cached.
-- **Staying signed in:** sessions last 1 day (sliding). The login form's **Keep me signed in** tick box makes it 30 days (also sliding) on that device; it is pre-ticked only inside the installed app. Changing the password signs every device out.
+- **Staying signed in:** sessions last 1 day (sliding). The login form's **Keep me signed in** tick box (ticked by default; unticking is remembered) makes it 30 days (also sliding). Changing the password signs every device out. While a sleeping free-tier server boots, the app retries for about a minute and then shows *Can't reach GST Billing* - it never treats a slow or failed request as a logout.
 - Needs HTTPS (Render provides it) or `localhost`. Icons: `public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`.
 - A Play-Store APK is **not** built: a Trusted Web Activity is tied to one origin, and every business here has its own subdomain.
 

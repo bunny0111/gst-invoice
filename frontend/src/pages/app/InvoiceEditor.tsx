@@ -7,7 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { PageHeader, PageLoader, UpgradePrompt } from '@/components/ui/Bits'
 import { Button } from '@/components/ui/Button'
-import { Combobox, Field, Select, Textarea, TextInput, inputCls } from '@/components/ui/Form'
+import { Combobox, Field, Select, Textarea, TextInput, UnitOptions, inputCls } from '@/components/ui/Form'
 import { ConfirmDialog } from '@/components/ui/Modal'
 import { ApiError, get, post, put, qs } from '@/lib/api'
 import { addDaysISO, amountInWords, financialYear, inr, inrPlain, todayISO, trimZero } from '@/lib/format'
@@ -22,7 +22,9 @@ interface Row {
   quantity: string; unit_price: string; discount_percent: string; gst_rate: string
 }
 let seq = 0
-const blank = (): Row => ({ key: `r${++seq}`, item_name: '', description: '', hsn_sac_code: '', unit: 'pcs', quantity: '1', unit_price: '', discount_percent: '0', gst_rate: '18' })
+// new rows start at the business's default GST rate (Business profile -> Invoice settings)
+let defaultRate = '18'
+const blank = (): Row => ({ key: `r${++seq}`, item_name: '', description: '', hsn_sac_code: '', unit: 'pcs', quantity: '1', unit_price: '', discount_percent: '0', gst_rate: defaultRate })
 const num = (v: string) => v.replace(/[^\d.]/g, '')
 
 export default function InvoiceEditor() {
@@ -67,6 +69,8 @@ export default function InvoiceEditor() {
       setRows(inv.items.map((i) => ({ key: `r${++seq}`, item_name: i.item_name, description: i.description, hsn_sac_code: i.hsn_sac_code, unit: i.unit, quantity: String(Number(i.quantity)), unit_price: i.unit_price, discount_percent: String(Number(i.discount_percent)), gst_rate: String(Number(i.gst_rate)) })))
       setHydrated(true)
     } else if (profile) {
+      defaultRate = String(Number(profile.default_gst_rate ?? 18))
+      setRows((rs) => rs.map((r) => (r.item_name || r.unit_price ? r : { ...r, gst_rate: defaultRate })))
       setNotes(profile.default_notes); setTerms(profile.default_terms)
       setDueDate(addDaysISO(todayISO(), profile.default_payment_terms))
       setHydrated(true)
@@ -78,7 +82,9 @@ export default function InvoiceEditor() {
   // ---- live GST maths (mirrors the server; the server recomputes on save)
   const detected = detectSupply(profile?.state, customer?.state)
   const supply: Supply = isExport ? 'export' : detected ?? 'intrastate'
-  const totals = useMemo(() => calcInvoice(rows.map((r) => ({ quantity: r.quantity, unit_price: r.unit_price, discount_percent: r.discount_percent, gst_rate: r.gst_rate })), supply), [rows, supply])
+  // No GSTIN = not GST-registered: no GST may be charged (the server enforces the same) - a Bill of Supply
+  const registered = !!profile?.gstin
+  const totals = useMemo(() => calcInvoice(rows.map((r) => ({ quantity: r.quantity, unit_price: r.unit_price, discount_percent: r.discount_percent, gst_rate: registered ? r.gst_rate : '0' })), supply), [rows, supply, registered])
 
   const patchRow = (key: string, p: Partial<Row>) => { setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r))); setRowErrors({}) }
   const addProduct = (p: Product) => {
@@ -170,7 +176,7 @@ export default function InvoiceEditor() {
   return (
     <>
       <Link to={editing ? `/invoices/${id}` : '/invoices'} className="mb-2 inline-flex items-center gap-1.5 py-2 text-sm font-semibold text-muted hover:text-brand-ink"><ArrowLeft className="size-4" />{editing ? 'Back to invoice' : 'All invoices'}</Link>
-      <PageHeader title={editing ? 'Edit draft invoice' : 'New invoice'} subtitle={<>Invoice number is assigned when you finalize — format <b className="num text-ink-2">{profile.invoice_prefix}/{fy}/001</b></>} />
+      <PageHeader title={editing ? 'Edit draft invoice' : 'New invoice'} subtitle={<>Invoice number is assigned when you finalize — the next one is <b className="num text-ink-2">{profile.next_invoice_preview}</b></>} />
 
       <div className="mb-6 space-y-4">
         {profileIncomplete && (
@@ -204,7 +210,16 @@ export default function InvoiceEditor() {
             </div>
 
             {/* supply type banner */}
-            <AnimatePresence mode="wait">
+            {!registered && (
+              <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-info/30 bg-info-soft p-4 text-sm">
+                <BadgeCheck className="size-5 text-info-ink" />
+                <div className="min-w-0 flex-1 basis-56">
+                  <p className="font-bold text-ink">Bill of Supply — no GST charged</p>
+                  <p className="text-xs text-ink-2">You haven't added a GSTIN, so you aren't GST-registered and can't collect GST. Registered? <Link to="/settings" className="font-semibold text-brand-ink underline">Add your GSTIN</Link>.</p>
+                </div>
+              </div>
+            )}
+            {registered && <AnimatePresence mode="wait">
               <motion.div key={supply + String(!!customer)} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 className={clsx('mt-5 flex flex-wrap items-center gap-3 rounded-xl border p-4', supply === 'export' ? 'border-info/30 bg-info-soft' : supply === 'intrastate' ? 'border-good/30 bg-good-soft' : 'border-warn/40 bg-warn-soft')}>
                 <BadgeCheck className={clsx('size-5', supply === 'export' ? 'text-info-ink' : supply === 'intrastate' ? 'text-good-ink' : 'text-warn-ink')} />
@@ -216,15 +231,15 @@ export default function InvoiceEditor() {
                   <input type="checkbox" checked={isExport} onChange={(e) => setIsExport(e.target.checked)} className="size-4 accent-[var(--brand)]" /><Globe2 className="size-4" />Export / SEZ (zero-rated)
                 </label>
               </motion.div>
-            </AnimatePresence>
+            </AnimatePresence>}
           </section>
 
           {/* ---- line items */}
           <section className="card p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-base font-bold text-ink">Items</h2>
-              <div className="flex items-center gap-2.5">
-                <div className="w-72 max-w-full">
+              <div className="flex w-full items-center gap-2.5 sm:w-auto">
+                <div className="w-full sm:w-72">
                   <Combobox<Product> placeholder="Add from catalogue…" disabled={disabled}
                     search={async (q) => (await get<Paginated<Product>>(`/api/products/${qs({ q, page_size: 8 })}`)).results}
                     onSelect={addProduct}
@@ -250,15 +265,16 @@ export default function InvoiceEditor() {
                           <div className="col-span-1 xl:col-span-2"><label className="mb-1 block text-xs font-semibold text-muted">Qty</label>
                             <input value={r.quantity} onChange={(e) => patchRow(r.key, { quantity: num(e.target.value) })} inputMode="decimal" className={clsx(inputCls, 'num h-10')} /></div>
                           <div className="col-span-1 xl:col-span-3"><label className="mb-1 block text-xs font-semibold text-muted">Unit</label>
-                            <Select value={r.unit} onChange={(e) => patchRow(r.key, { unit: e.target.value })} className="!h-10">{meta?.units.map((u) => <option key={u.code} value={u.code}>{u.code}</option>)}</Select></div>
+                            <Select value={r.unit} onChange={(e) => patchRow(r.key, { unit: e.target.value })} className="!h-10"><UnitOptions units={meta?.units} short /></Select></div>
                           <div className="col-span-1 md:col-span-2 xl:col-span-4"><label className="mb-1 block text-xs font-semibold text-muted">Rate (₹)</label>
                             <input value={r.unit_price} onChange={(e) => patchRow(r.key, { unit_price: num(e.target.value) })} inputMode="decimal" placeholder="0.00" className={clsx(inputCls, 'num h-10')} /></div>
                           <div className="col-span-1 md:col-span-2 xl:col-span-4"><label className="mb-1 block text-xs font-semibold text-muted">Discount %</label>
                             <input value={r.discount_percent} onChange={(e) => patchRow(r.key, { discount_percent: num(e.target.value) })} inputMode="decimal" className={clsx(inputCls, 'num h-10')} /></div>
                           <div className="col-span-1 md:col-span-2 xl:col-span-4"><label className="mb-1 block text-xs font-semibold text-muted">GST rate</label>
-                            <Select value={r.gst_rate} onChange={(e) => patchRow(r.key, { gst_rate: e.target.value })} className="!h-10">{[...(meta?.gst_rates ?? [0, 0.25, 3, 5, 18, 40]), ...(meta?.gst_rates?.includes(Number(r.gst_rate)) ? [] : [Number(r.gst_rate)])].map((g) => <option key={g} value={g}>{g}%</option>)}</Select></div>
+                            {!registered ? <div className="flex h-10 items-center rounded-xl border border-line bg-surface-2 px-3.5 text-sm text-muted">No GST</div> :
+                            <Select value={r.gst_rate} onChange={(e) => patchRow(r.key, { gst_rate: e.target.value })} className="!h-10">{[...(meta?.gst_rates ?? [0, 0.25, 3, 5, 18, 40]), ...(meta?.gst_rates?.includes(Number(r.gst_rate)) ? [] : [Number(r.gst_rate)])].map((g) => <option key={g} value={g}>{g}%</option>)}</Select>}</div>
                           <div className="col-span-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl bg-surface px-4 py-2.5 md:col-span-6 xl:col-span-12">
-                            <div className="text-xs text-muted">Taxable <b className="num text-ink-2">{inrPlain(line?.taxable.toString())}</b>{supply !== 'export' && <> · Tax <b className="num text-ink-2">{inrPlain(line?.cgst.add(line.sgst).add(line.igst).toString())}</b></>}</div>
+                            <div className="text-xs text-muted">Taxable <b className="num text-ink-2">{inrPlain(line?.taxable.toString())}</b>{supply !== 'export' && registered && <> · Tax <b className="num text-ink-2">{inrPlain(line?.cgst.add(line.sgst).add(line.igst).toString())}</b></>}</div>
                             <div className="num font-display text-base font-extrabold text-ink">{inr(line?.total.toString())}</div>
                           </div>
                         </div>
@@ -294,9 +310,10 @@ export default function InvoiceEditor() {
               {!totals.discount.isZero() && <Line label="Discount" value={`-${totals.discount.toString()}`} />}
               <Line label="Taxable amount" value={totals.taxable.toString()} strong />
               <div className="my-1 border-t border-dashed border-line-strong" />
+              {!registered ? <p className="text-xs text-muted">Bill of Supply — no GST (you have no GSTIN).</p> : <>
               {supply === 'intrastate' && <><Line label="CGST" value={totals.cgst.toString()} /><Line label="SGST" value={totals.sgst.toString()} /></>}
               {supply === 'interstate' && <Line label="IGST" value={totals.igst.toString()} />}
-              {supply === 'export' && <p className="text-xs text-muted">Zero-rated — no GST applies.</p>}
+              {supply === 'export' && <p className="text-xs text-muted">Zero-rated — no GST applies.</p>}</>}
               {!totals.roundOff.isZero() && <Line label="Round off" value={`${totals.roundOff.gt(0) ? '+' : ''}${totals.roundOff.toString()}`} muted />}
             </dl>
             <div className="space-y-3 border-t border-line bg-surface-2 p-5">
@@ -324,7 +341,7 @@ export default function InvoiceEditor() {
       <ConfirmDialog open={confirm !== null} onClose={() => setConfirm(null)} onConfirm={() => save(true, confirm === 'whatsapp' || confirm === 'email' ? confirm : undefined)} loading={busy === 'final'}
         title={confirm === 'whatsapp' ? 'Finalize and send on WhatsApp?' : confirm === 'email' ? 'Finalize and email this invoice?' : 'Finalize this invoice?'}
         confirmLabel={confirm === 'whatsapp' ? 'Finalize & open WhatsApp' : confirm === 'email' ? 'Finalize & send email' : 'Finalize & lock'}
-        message={<>The invoice number <b>{profile.invoice_prefix}/{fy}/…</b> will be assigned and the invoice will be <b>locked</b> — it can no longer be edited (you can cancel it and issue a new one). Total: <b>{inr(totals.grand.toString())}</b>.
+        message={<>The invoice number <b>{profile.next_invoice_preview}</b> will be assigned and the invoice will be <b>locked</b> — it can no longer be edited (you can cancel it and issue a new one). Total: <b>{inr(totals.grand.toString())}</b>.
           {confirm === 'whatsapp' && customer && <> WhatsApp will then open with a ready-to-send message for <b>{customer.name}</b> (<b>{customer.phone}</b>), including a link to the PDF.</>}
           {confirm === 'email' && customer && <> The invoice PDF will then be emailed to <b>{customer.name}</b> at <b>{customer.email}</b>.</>}</>} />
       <CustomerModal customer={addCustomer ? 'new' : null} onClose={() => setAddCustomer(false)} onSaved={(c) => { setCustomer(c); setAddCustomer(false); qc.invalidateQueries({ queryKey: ['customers'] }); refreshUsage() }} />

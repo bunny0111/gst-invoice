@@ -154,39 +154,95 @@ class ProfileView(APIView):
 
 
 class LogoView(APIView):
+    """Upload / remove one of the profile's images. The same view serves the logo, the signature and the payment
+    QR code: `form_field` is the multipart field name, `profile_field` the BusinessProfile foreign key."""
     parser_classes = [MultiPartParser]
+    form_field = "logo"
+    profile_field = "logo_image"
 
     def post(self, request):
-        upload = request.FILES.get("logo")
+        key = self.form_field
+        upload = request.FILES.get(key)
         if not upload:
-            raise serializers.ValidationError({"logo": ["Choose an image file."]})
+            raise serializers.ValidationError({key: ["Choose an image file."]})
         try:
             validate_logo_file(upload)
-        except serializers.ValidationError as exc:
-            raise serializers.ValidationError({"logo": exc.detail})
-        try:
             image = store_logo(upload)  # shrunk, saved in the tenant's own database schema
         except serializers.ValidationError as exc:
-            raise serializers.ValidationError({"logo": exc.detail})
+            raise serializers.ValidationError({key: exc.detail})
         profile = get_profile(request.user)
-        profile.logo_image = image
-        profile.save(update_fields=["logo_image", "updated_at"])
+        setattr(profile, self.profile_field, image)
+        profile.save(update_fields=[self.profile_field, "updated_at"])
         return Response(BusinessProfileSerializer(profile).data)
 
     def delete(self, request):
-        # the LogoImage row stays: invoices finalized with this logo keep showing it
+        # the image row stays: invoices finalized with it keep showing it
         profile = get_profile(request.user)
-        profile.logo_image = None
-        profile.save(update_fields=["logo_image", "updated_at"])
+        setattr(profile, self.profile_field, None)
+        profile.save(update_fields=[self.profile_field, "updated_at"])
         return Response(BusinessProfileSerializer(profile).data)
+
+
+class SignatureView(LogoView):
+    form_field = "signature"
+    profile_field = "signature_image"
+
+
+class PaymentQrView(LogoView):
+    form_field = "qr"
+    profile_field = "payment_qr_image"
+
+
+class SmtpTestView(APIView):
+    """Send a test email through the business's own mail server, to the logged-in user, using the settings in the
+    request (so they can be tried before saving). A blank password means "use the one already saved"."""
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "share"
+
+    def post(self, request):
+        from common import crypto
+        from common.mailer import smtp_connection, smtp_error_message
+
+        profile = get_profile(request.user)
+        data = request.data
+        host = str(data.get("smtp_host") or "").strip()
+        from_email = str(data.get("smtp_from_email") or "").strip()
+        if not host or not from_email:
+            raise ApiError("Enter the server and the From email first.", "smtp_incomplete", 400)
+        try:
+            port = int(data.get("smtp_port") or 587)
+        except (TypeError, ValueError):
+            raise ApiError("The port must be a number (usually 587 or 465).", "smtp_port", 400)
+        password = str(data.get("smtp_password") or "") or crypto.decrypt(profile.smtp_password)
+        connection = smtp_connection(host, port, str(data.get("smtp_security") or "starttls"),
+                                     str(data.get("smtp_username") or "").strip(), password)
+        name = str(data.get("smtp_from_name") or profile.business_name).strip()
+        from django.core.mail import EmailMessage
+        message = EmailMessage(
+            subject="Test email from GST Billing",
+            body=f"This is a test from GST Billing.\n\nYour invoices will be sent from {from_email} "
+                 f"through {host}:{port}. Everything is working.",
+            from_email=f"{name} <{from_email}>", to=[request.user.email], connection=connection)
+        try:
+            message.send(fail_silently=False)
+        except Exception as exc:  # noqa: BLE001 - any SMTP/socket/TLS failure becomes a readable message
+            log.info("SMTP test failed for %s: %s", host, exc)
+            raise ApiError(smtp_error_message(exc), "smtp_failed", 400)
+        return Response({"detail": f"Test email sent to {request.user.email}."})
 
 
 @require_GET
 def logo_image(request, pk: int):
-    """Serve a stored logo. Looked up in the CURRENT tenant's schema only, so another business's logo is a 404.
-    A row never changes, so browsers may cache it forever (a new upload gets a new id and a new URL)."""
+    """Serve a stored image. Looked up in the CURRENT tenant's schema only, so another business's image is a 404.
+    A row never changes, so browsers may cache it forever (a new upload gets a new id and a new URL).
+    Without a login only the CURRENT logo is served (the login page shows it); signatures, QR codes and older logos
+    need a signed-in user."""
+    if not request.user.is_authenticated:
+        profile = BusinessProfile.objects.only("logo_image_id").first()
+        if not profile or profile.logo_image_id != pk:
+            return HttpResponse(status=404)
     image = get_object_or_404(LogoImage, pk=pk)
     response = HttpResponse(bytes(image.data), content_type=image.content_type)
-    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    response["Cache-Control"] = ("public" if not request.user.is_authenticated else "private") + ", max-age=31536000, immutable"
     response["X-Content-Type-Options"] = "nosniff"
     return response

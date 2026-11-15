@@ -6,6 +6,7 @@ export interface TenantInfo {
   name?: string
   slug?: string
   active?: boolean
+  logo_url?: string | null
 }
 
 export interface Me {
@@ -23,8 +24,11 @@ export interface Meta {
   gst_rates: number[]
   legacy_gst_rates?: number[]
   gst_rate_cutover?: string
-  units: { code: string; name: string }[]
+  units: { code: string; name: string; group?: string; uqc?: string }[]
   payment_modes: { code: string; name: string }[]
+  business_types?: { code: string; name: string }[]
+  business_natures?: { code: string; name: string }[]
+  account_types?: { code: string; name: string }[]
 }
 
 export interface Paginated<T> { count: number; next: string | null; previous: string | null; results: T[] }
@@ -78,10 +82,15 @@ export interface PaymentRecord {
 
 export interface Profile {
   business_name: string; gstin: string; pan: string; state: string; address_line1: string; address_line2: string
-  city: string; pincode: string; phone: string; email: string; logo_url: string | null; bank_name: string
-  account_holder_name: string; account_number: string; ifsc_code: string; invoice_prefix: string
-  default_payment_terms: number; default_notes: string; default_terms: string; is_complete: boolean
-  missing_fields: string[]
+  city: string; pincode: string; phone: string; email: string; website: string; business_type: string; business_nature: string
+  logo_url: string | null; signatory_name: string; signature_url: string | null
+  bank_name: string; bank_branch: string; account_type: string; account_holder_name: string; account_number: string
+  ifsc_code: string; upi_id: string; payment_qr_url: string | null; payment_instructions: string
+  invoice_prefix: string; invoice_number_format: 'fy' | 'running'; next_invoice_number: number; next_invoice_preview: string
+  default_gst_rate: string; default_payment_terms: number; default_notes: string; default_terms: string
+  smtp_enabled: boolean; smtp_host: string; smtp_port: number; smtp_security: 'starttls' | 'ssl' | 'none'
+  smtp_username: string; smtp_password?: string; smtp_password_set: boolean; smtp_from_email: string; smtp_from_name: string
+  is_complete: boolean; missing_fields: string[]
 }
 
 export interface Plan {

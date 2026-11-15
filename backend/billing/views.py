@@ -1,14 +1,13 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.conf import settings
 from django.core.mail import EmailMessage
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Max, Q, Sum
 from django.db.models.functions import Lower, TruncMonth
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import mixins, status, viewsets
+from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -16,6 +15,7 @@ from rest_framework.views import APIView
 
 from accounts.views import get_profile
 from common.api import ApiError
+from common.mailer import business_sender, smtp_error_message
 
 from . import services, sharing
 from .models import Customer, Invoice, Payment, Product
@@ -73,6 +73,27 @@ class CustomerViewSet(SoftDeleteViewSet):
     queryset = Customer.objects.annotate(invoice_count=Count("invoices")).order_by(Lower("name"))
     resource = "customers"
     search_fields = ("name", "gstin", "phone")
+
+    def _reject_duplicate(self, serializer):
+        """The same customer twice splits their invoices and payments across two records. A GST number belongs to
+        one customer; the same name + phone is the same person. Removed customers count too (restore them)."""
+        data, current = serializer.validated_data, serializer.instance
+        get = lambda k: data[k] if k in data else getattr(current, k, "")  # noqa: E731
+        others = Customer.objects.exclude(pk=current.pk) if current else Customer.objects.all()
+        gstin, name, phone = get("gstin"), get("name"), get("phone")
+        twin = (gstin and others.filter(gstin=gstin).first()) or others.filter(name__iexact=name, phone=phone).first()
+        if twin:
+            where = "" if twin.is_active else " (it was removed - restore it from the Removed filter)"
+            field = "gstin" if gstin and twin.gstin == gstin else "name"
+            raise serializers.ValidationError({field: [f"You already have this customer: {twin.name}{where}."]})
+
+    def perform_create(self, serializer):
+        self._reject_duplicate(serializer)
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        self._reject_duplicate(serializer)
+        serializer.save()
 
 
 class ProductViewSet(SoftDeleteViewSet):
@@ -246,15 +267,19 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         profile = get_profile(request.user)
         business = self._business_name(invoice, profile)
         body = sharing.invoice_message(invoice, business, sharing.share_url(request, invoice.pk))
+        connection, sender = business_sender(profile)  # the business's own mail server, if it set one up
         mail = EmailMessage(
             subject=f"Invoice {invoice.invoice_number} from {business}",
-            body=body, from_email=settings.DEFAULT_FROM_EMAIL, to=[to],
+            body=body, from_email=sender, to=[to], connection=connection,
             reply_to=[profile.email] if profile.email else None,
         )
         mail.attach(invoice.pdf_filename, render_invoice_pdf(invoice, profile), "application/pdf")
         try:
             mail.send(fail_silently=False)
-        except Exception:  # SMTP down, bad credentials, rejected recipient ...
+        except Exception as exc:  # SMTP down, bad credentials, rejected recipient ...
+            if connection is not None:
+                raise ApiError(f"Your email server didn't accept the message. {smtp_error_message(exc)} "
+                               "You can check the settings in Business profile -> Email.", "email_failed", 502)
             raise ApiError("The email couldn't be sent right now. Please try again in a moment.", "email_failed", 502)
         return Response({"sent_to": to, "detail": f"Invoice emailed to {to}."})
 

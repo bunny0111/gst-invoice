@@ -78,6 +78,7 @@ INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in S
 
 TENANT_MODEL = "tenants.Business"
 TENANT_DOMAIN_MODEL = "tenants.Domain"
+DEFAULT_NOT_FOUND_TENANT_VIEW = "common.views.workspace_not_found"  # friendly page for a mistyped subdomain
 
 MIDDLEWARE = [
     "django_tenants.middleware.main.TenantMainMiddleware",

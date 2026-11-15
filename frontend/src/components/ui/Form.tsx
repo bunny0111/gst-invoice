@@ -8,7 +8,7 @@ import {
 import { useDebounce } from '@/lib/hooks'
 
 export const inputCls =
-  'w-full rounded-xl border border-line-strong bg-surface px-3.5 text-base text-ink sm:text-sm placeholder:text-muted/80 ' +
+  'w-full rounded-xl border border-line-strong bg-surface px-3.5 text-base text-ink pointer-fine:sm:text-sm placeholder:text-muted/80 ' +
   'transition-[border-color,box-shadow] duration-150 focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15 ' +
   'disabled:bg-surface-2 disabled:text-muted'
 
@@ -87,6 +87,15 @@ export function Select({ className, invalid, children, ...rest }: SelectHTMLAttr
       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
     </div>
   )
+}
+
+/** Options for a unit-of-measurement <Select>, grouped (Count, Weight, Length, ...) as /api/meta/ sends them.
+ *  `short` leads with the code ("kg – Kilograms") for the narrow invoice rows; otherwise "Kilograms (kg)". */
+export function UnitOptions({ units, short }: { units?: { code: string; name: string; group?: string }[]; short?: boolean }) {
+  const groups = new Map<string, { code: string; name: string }[]>()
+  for (const u of units ?? []) groups.set(u.group ?? 'Units', [...(groups.get(u.group ?? 'Units') ?? []), u])
+  const label = (u: { code: string; name: string }) => (short ? `${u.code} – ${u.name}` : `${u.name} (${u.code})`)
+  return <>{[...groups].map(([g, list]) => <optgroup key={g} label={g}>{list.map((u) => <option key={u.code} value={u.code}>{label(u)}</option>)}</optgroup>)}</>
 }
 
 export function SearchInput({ value, onChange, placeholder = 'Search…', className }: {

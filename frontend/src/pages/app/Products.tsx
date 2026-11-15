@@ -6,11 +6,11 @@ import { toast } from 'sonner'
 import { mobileAct, mobileActDanger } from '@/components/ui/mobile'
 import { EmptyState, PageHeader, Pagination, Skeleton, UpgradePrompt } from '@/components/ui/Bits'
 import { Button, IconButton } from '@/components/ui/Button'
-import { Field, SearchInput, Select, Textarea, TextInput } from '@/components/ui/Form'
+import { Field, SearchInput, Select, Textarea, TextInput, UnitOptions } from '@/components/ui/Form'
 import { ConfirmDialog, Modal } from '@/components/ui/Modal'
 import { ApiError, del, get, patch, post, qs } from '@/lib/api'
 import { inr, trimZero } from '@/lib/format'
-import { useDebounce, useMeta, useRefreshUsage, useSubscription } from '@/lib/hooks'
+import { useDebounce, useMeta, useProfile, useRefreshUsage, useSubscription } from '@/lib/hooks'
 import type { Paginated, Product } from '@/lib/types'
 
 const empty = { name: '', description: '', item_type: 'goods', hsn_sac_code: '', unit: 'pcs', selling_price: '', gst_rate: '18' }
@@ -74,7 +74,7 @@ export default function Products() {
             action={!dq && !atLimit && <Button onClick={() => setEditing('new')} icon={<Plus className="size-4" />}>Add your first item</Button>} />
         ) : (
           <>
-          <ul className={clsx('divide-y divide-line md:hidden', list.isPlaceholderData && 'opacity-60')}>
+          <ul className={clsx('divide-y divide-line xl:hidden', list.isPlaceholderData && 'opacity-60')}>
             {rows.map((p) => (
               <li key={p.id} className={clsx('px-4 py-4', !p.is_active && 'opacity-60')}>
                 <div className="flex items-start gap-3">
@@ -99,7 +99,7 @@ export default function Products() {
               </li>
             ))}
           </ul>
-          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity md:block', list.isPlaceholderData && 'opacity-60')}>
+          <div className={clsx('hidden overflow-x-auto scroll-thin transition-opacity xl:block', list.isPlaceholderData && 'opacity-60')}>
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-3.5">Item</th><th className="px-3">HSN / SAC</th><th className="px-3">Unit</th><th className="px-3 text-right">Price</th><th className="px-3 text-right">GST</th><th className="px-5" />
@@ -137,6 +137,7 @@ export default function Products() {
 
 function ProductModal({ product, onClose, onSaved }: { product: Product | 'new' | null; onClose: () => void; onSaved: () => void }) {
   const meta = useMeta().data
+  const profile = useProfile().data
   const [f, setF] = useState(empty)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
@@ -145,7 +146,7 @@ function ProductModal({ product, onClose, onSaved }: { product: Product | 'new' 
   useEffect(() => {
     if (!product) return
     setErrors({})
-    setF(product === 'new' ? empty : { name: product.name, description: product.description, item_type: product.item_type, hsn_sac_code: product.hsn_sac_code, unit: product.unit, selling_price: product.selling_price, gst_rate: trimZero(product.gst_rate) })
+    setF(product === 'new' ? { ...empty, gst_rate: profile?.gstin ? trimZero(profile.default_gst_rate ?? '18') : '0' } : { name: product.name, description: product.description, item_type: product.item_type, hsn_sac_code: product.hsn_sac_code, unit: product.unit, selling_price: product.selling_price, gst_rate: trimZero(product.gst_rate) })
   }, [product])
 
   const set = (k: keyof typeof empty) => (e: { target: { value: string } }) => { setF((p) => ({ ...p, [k]: e.target.value })); setErrors((p) => ({ ...p, [k]: '' })) }
@@ -183,7 +184,7 @@ function ProductModal({ product, onClose, onSaved }: { product: Product | 'new' 
         </div>
         <Field label="Name" required error={errors.name} className="sm:col-span-2"><TextInput autoFocus value={f.name} onChange={set('name')} placeholder={f.item_type === 'goods' ? 'e.g. LED Monitor 24"' : 'e.g. Logo design'} invalid={!!errors.name} /></Field>
         <Field label="HSN / SAC code" error={errors.hsn_sac_code} hint="HSN for goods, SAC for services (2–8 digits)"><TextInput value={f.hsn_sac_code} onChange={set('hsn_sac_code')} inputMode="numeric" maxLength={8} className="num" invalid={!!errors.hsn_sac_code} /></Field>
-        <Field label="Unit" error={errors.unit}><Select value={f.unit} onChange={set('unit')}>{meta?.units.map((u) => <option key={u.code} value={u.code}>{u.name} ({u.code})</option>)}</Select></Field>
+        <Field label="Unit" error={errors.unit}><Select value={f.unit} onChange={set('unit')}><UnitOptions units={meta?.units} /></Select></Field>
         <Field label="Selling price" required error={errors.selling_price} hint="Excluding GST"><TextInput value={f.selling_price} onChange={(e) => set('selling_price')({ target: { value: e.target.value.replace(/[^\d.]/g, '') } })} inputMode="decimal" left="₹" className="num" invalid={!!errors.selling_price} /></Field>
         <Field label="GST rate" required error={errors.gst_rate}>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" role="radiogroup" aria-label="GST rate">

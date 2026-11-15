@@ -3,15 +3,15 @@ from dataclasses import asdict
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 
 from common.api import ApiError
 from common.gst import STATE_NAMES
 
-from . import calc
-from .models import Customer, Invoice, InvoiceLineItem, InvoiceSequence, Payment
+from . import calc, numbering
+from .models import Customer, Invoice, InvoiceLineItem, Payment
 
 MAX_INVOICE_NUMBER_LENGTH = 16  # GST rule: the serial number may not exceed 16 characters
 
@@ -24,8 +24,13 @@ def business_snapshot(profile) -> dict:
         "address_line1": profile.address_line1, "address_line2": profile.address_line2,
         "city": profile.city, "pincode": profile.pincode, "phone": profile.phone, "email": profile.email,
         "logo": None, "logo_id": profile.logo_image_id,  # "logo" = legacy file name, only on older snapshots
-        "bank_name": profile.bank_name, "account_holder_name": profile.account_holder_name,
+        "website": profile.website, "business_type": profile.business_type, "business_nature": profile.business_nature,
+        "signatory_name": profile.signatory_name, "signature_id": profile.signature_image_id,
+        "bank_name": profile.bank_name, "bank_branch": profile.bank_branch, "account_type": profile.account_type,
+        "account_holder_name": profile.account_holder_name,
         "account_number": profile.account_number, "ifsc_code": profile.ifsc_code,
+        "upi_id": profile.upi_id, "payment_qr_id": profile.payment_qr_image_id,
+        "payment_instructions": profile.payment_instructions,
     }
 
 
@@ -44,7 +49,14 @@ def resolve_supply_type(profile, customer: Customer, requested: str) -> str:
     return calc.detect_supply_type(profile.state, customer.state)
 
 
-def _write_items_and_totals(invoice: Invoice, items: list[dict]) -> None:
+def _without_gst(items: list[dict]) -> list[dict]:
+    """A seller without a GSTIN is not registered under GST: it may not collect GST, so every line is 0%."""
+    return [{**item, "gst_rate": 0} for item in items]
+
+
+def _write_items_and_totals(invoice: Invoice, items: list[dict], profile) -> None:
+    if not profile.is_gst_registered:
+        items = _without_gst(items)
     totals = calc.calculate_invoice(items, invoice.supply_type)
     InvoiceLineItem.objects.bulk_create([
         InvoiceLineItem(
@@ -76,7 +88,7 @@ def create_invoice(data: dict, user, profile) -> Invoice:
         created_by=user,
     )
     invoice.save()
-    _write_items_and_totals(invoice, data["items"])
+    _write_items_and_totals(invoice, data["items"], profile)
     invoice.save()
     return invoice
 
@@ -97,12 +109,12 @@ def update_invoice(invoice: Invoice, data: dict, profile) -> Invoice:
     invoice.terms = data.get("terms", invoice.terms)
     if "items" in data:
         invoice.items.all().delete()
-        _write_items_and_totals(invoice, data["items"])
+        _write_items_and_totals(invoice, data["items"], profile)
     else:  # customer/date change can flip intra <-> inter: recompute from the stored lines
         items = list(invoice.items.values("item_name", "description", "hsn_sac_code", "unit", "unit_price",
                                           "gst_rate", "quantity", "discount_percent"))
         invoice.items.all().delete()
-        _write_items_and_totals(invoice, items)
+        _write_items_and_totals(invoice, items, profile)
     invoice.save()
     return invoice
 
@@ -115,23 +127,20 @@ def finalize_invoice(invoice_id: int, profile) -> Invoice:
         raise ApiError("Only draft invoices can be finalized.", "not_draft", 409)
     if not profile.is_complete:
         raise ApiError("Complete your business profile before finalizing invoices.", "profile_incomplete", 403)
+    if not profile.is_gst_registered and invoice.items.exclude(gst_rate=0).exists():
+        # drafted while the business still had a GSTIN: re-price it as a Bill of Supply before it is issued
+        items = list(invoice.items.values("item_name", "description", "hsn_sac_code", "unit", "unit_price",
+                                          "gst_rate", "quantity", "discount_percent"))
+        invoice.items.all().delete()
+        _write_items_and_totals(invoice, items, profile)
     if invoice.grand_total <= 0:
         raise ApiError("The invoice total must be greater than zero.", "zero_total", 400)
 
-    fy = calc.financial_year(invoice.invoice_date)
-    try:
-        with transaction.atomic():
-            sequence, _ = InvoiceSequence.objects.get_or_create(financial_year=fy)
-    except IntegrityError:  # two requests raced to create the FY row
-        sequence = InvoiceSequence.objects.get(financial_year=fy)
-    sequence = InvoiceSequence.objects.select_for_update().get(pk=sequence.pk)  # serialise numbering
-    sequence.last_number += 1
-    number = calc.format_invoice_number(profile.invoice_prefix, fy, sequence.last_number)
+    number, fy = numbering.allocate(profile, invoice.invoice_date)  # rolled back with everything else on error
     if len(number) > MAX_INVOICE_NUMBER_LENGTH:
         raise ApiError(
             f"Invoice number '{number}' would exceed the 16 character GST limit. "
             "Use a shorter invoice prefix in Settings.", "number_too_long", 400)
-    sequence.save(update_fields=["last_number"])
 
     invoice.invoice_number = number
     invoice.financial_year = fy
@@ -150,6 +159,9 @@ def cancel_invoice(invoice_id: int) -> Invoice:
         raise ApiError("Drafts are deleted, not cancelled.", "is_draft", 409)
     if invoice.status == Invoice.CANCELLED:
         raise ApiError("This invoice is already cancelled.", "already_cancelled", 409)
+    if invoice.payments.exists():
+        raise ApiError("Payments are recorded against this invoice. Delete them (or refund the customer) "
+                       "before cancelling it.", "has_payments", 409)
     invoice.status = Invoice.CANCELLED
     invoice.cancelled_at = timezone.now()
     invoice.save(update_fields=["status", "cancelled_at", "updated_at"])
@@ -157,6 +169,14 @@ def cancel_invoice(invoice_id: int) -> Invoice:
 
 
 # --------------------------------------------------------------------------- payments
+def check_payment_date(invoice: Invoice, payment_date) -> None:
+    if payment_date > timezone.localdate():
+        raise ApiError("The payment date can't be in the future.", "future_payment", 400)
+    if payment_date < invoice.invoice_date:
+        raise ApiError(f"The payment date can't be before the invoice date ({invoice.invoice_date:%d %b %Y}).",
+                       "payment_before_invoice", 400)
+
+
 def refresh_payment_state(invoice: Invoice) -> None:
     """amount_paid = sum(payments); status follows (US-07 AC3: balance is calculated automatically)."""
     invoice.amount_paid = invoice.payments.aggregate(total=Sum("amount"))["total"] or Decimal("0")
@@ -185,6 +205,7 @@ def add_payment(invoice_id: int, amount: Decimal, payment_date, mode: str, refer
         raise ApiError("Enter an amount greater than zero.", "bad_amount", 400)
     if amount > invoice.balance_due:
         raise ApiError(f"Amount exceeds the outstanding balance of ₹{invoice.balance_due}.", "overpayment", 400)
+    check_payment_date(invoice, payment_date)
     Payment.objects.create(invoice=invoice, amount=amount, payment_date=payment_date, mode=mode,
                            reference=reference, notes=notes)
     refresh_payment_state(invoice)
@@ -214,6 +235,8 @@ def update_payment(payment_id: int, data: dict) -> Payment:
     room = invoice.grand_total - others
     if amount > room:
         raise ApiError(f"Amount exceeds the outstanding balance of ₹{room} for this invoice.", "overpayment", 400)
+    if "payment_date" in data:
+        check_payment_date(invoice, data["payment_date"])
     payment.amount = amount
     for field in ("payment_date", "mode", "reference", "notes"):
         if field in data:

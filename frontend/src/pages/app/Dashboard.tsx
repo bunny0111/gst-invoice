@@ -78,9 +78,10 @@ export default function Dashboard() {
           <div className="animate-blob absolute -right-16 -top-20 size-72 rounded-full bg-[#ff8a5c]/30 blur-3xl" />
           <div className="bg-grid-pattern-invert pointer-events-none absolute inset-0" />
           <ReceiptIndianRupee className="pointer-events-none absolute -bottom-8 -right-6 size-44 text-white/[0.07]" strokeWidth={1.2} />
-          <div className="relative">
+          <div className="@container relative">
             <p className="text-sm font-semibold text-white/75">Revenue · {data.month_label}</p>
-            <p className="mt-3 font-display text-[56px] font-extrabold leading-none tracking-tight sm:text-[64px]">{inrWholeRupees(animated)}</p>
+            {/* sized to the card, not the screen: the card is narrow on phones AND in the two-column laptop layout */}
+            <p className="mt-3 whitespace-nowrap font-display text-[clamp(1.75rem,14cqw,4rem)] font-extrabold leading-none tracking-tight">{inrWholeRupees(animated)}</p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {change === null ? (
                 <span className="rounded-full bg-white/15 px-3.5 py-1.5 text-[13px] font-semibold text-white/90">{revenue > 0 ? 'First month of revenue 🎉' : 'Create an invoice to start tracking'}</span>
@@ -108,12 +109,12 @@ export default function Dashboard() {
         <StatTile label="Overdue" value={data.counts.overdue} icon={<AlertCircle className="size-[18px]" />} tone="crit" delay={0.24} to="/invoices?status=overdue" hint={data.counts.overdue ? 'Needs follow-up' : 'All on time'} />
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.6fr_1fr]">
         <div className="card p-6"><RevenueChart trend={data.trend} /></div>
         <div className="card p-6"><StatusBar counts={data.counts} outstanding={data.outstanding} overdueAmount={data.overdue_amount} /></div>
       </div>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.6fr_1fr]">
         <section className="card overflow-hidden">
           <div className="flex items-center justify-between border-b border-line px-6 py-4">
             <h3 className="font-display text-base font-bold text-ink">Recent invoices</h3>
@@ -123,7 +124,7 @@ export default function Dashboard() {
             <EmptyState icon={<FilePlus2 className="size-8" />} title="No invoices yet" message="Your latest invoices will appear here with their payment status." action={<LinkButton to="/invoices/new" size="sm" icon={<Plus className="size-4" />}>Create invoice</LinkButton>} />
           ) : (
             <>
-            <ul className="divide-y divide-line md:hidden">
+            <ul className="divide-y divide-line xl:hidden">
               {data.recent_invoices.map((r) => (
                 <li key={r.id}>
                   <Link to={`/invoices/${r.id}`} className="flex items-center justify-between gap-3 px-4 py-3.5 transition-colors active:bg-surface-2">
@@ -140,13 +141,13 @@ export default function Dashboard() {
                 </li>
               ))}
             </ul>
-            <div className="hidden overflow-x-auto scroll-thin md:block">
+            <div className="hidden overflow-x-auto scroll-thin xl:block">
               <table className="w-full min-w-[520px] text-left text-sm">
                 <thead><tr className="border-b border-line bg-surface-2 text-[11.5px] font-bold uppercase tracking-wider text-muted"><th className="px-6 py-3">Invoice</th><th className="px-3">Customer</th><th className="px-3 text-right">Amount</th><th className="px-6">Status</th></tr></thead>
                 <tbody>
                   {data.recent_invoices.map((r) => (
                     <tr key={r.id} onClick={() => navigate(`/invoices/${r.id}`)} className="cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-surface-2">
-                      <td className="num px-6 py-3.5 font-bold text-ink">{r.invoice_number ?? <span className="font-semibold italic text-muted">Draft #{r.id}</span>}<span className="block text-xs font-normal text-muted">{fmtDate(r.invoice_date)}</span></td>
+                      <td className="num whitespace-nowrap px-6 py-3.5 font-bold text-ink">{r.invoice_number ?? <span className="font-semibold italic text-muted">Draft #{r.id}</span>}<span className="block text-xs font-normal text-muted">{fmtDate(r.invoice_date)}</span></td>
                       <td className="px-3 font-medium text-ink-2">{r.customer_name}</td>
                       <td className="num px-3 text-right font-bold text-ink">{inr(r.grand_total)}</td>
                       <td className="px-6"><StatusBadge status={r.status} /></td>
@@ -193,7 +194,7 @@ function DashboardSkeleton() {
       <Skeleton className="h-16 w-72" />
       <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]"><Skeleton className="h-56 !rounded-2xl" /><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"><Skeleton className="h-32 !rounded-2xl" /><Skeleton className="h-32 !rounded-2xl" /></div></div>
       <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28 !rounded-2xl" />)}</div>
-      <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]"><Skeleton className="h-80 !rounded-2xl" /><Skeleton className="h-80 !rounded-2xl" /></div>
+      <div className="grid gap-5 xl:grid-cols-[1.6fr_1fr]"><Skeleton className="h-80 !rounded-2xl" /><Skeleton className="h-80 !rounded-2xl" /></div>
     </div>
   )
 }

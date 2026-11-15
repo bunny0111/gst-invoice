@@ -9,3 +9,5 @@ bcrypt==5.0.0
 whitenoise==6.12.0
 requests==2.34.2
 gunicorn==26.2.0
+segno==1.6.6
+cryptography==46.0.3

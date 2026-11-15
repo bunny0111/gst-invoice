@@ -4,7 +4,7 @@ import {
   AlertCircle, Ban, CheckCircle2, ChevronLeft, ChevronRight, FilePen, Loader2, Moon, PieChart,
   Send, Sparkles, Sun, TrendingUp,
 } from 'lucide-react'
-import { useId, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '@/lib/theme'
 import type { InvoiceStatus, Plan } from '@/lib/types'
@@ -37,15 +37,15 @@ export function LogoMark({ className }: { className?: string }) {
 
 export function Logo({ compact, light }: { compact?: boolean; light?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-2.5">
-      <LogoMark className="size-9 shrink-0 drop-shadow-[0_6px_12px_rgba(76,56,214,0.35)] sm:size-10" />
+    <span className="inline-flex items-center gap-2.5 max-[359px]:gap-2">
+      <LogoMark className="size-9 shrink-0 drop-shadow-[0_6px_12px_rgba(76,56,214,0.35)] max-[359px]:size-8 sm:size-10" />
       {!compact && (
         <span className="whitespace-nowrap leading-none">
-          <span className="block font-display text-[17px] font-extrabold tracking-tight sm:text-[18px]">
+          <span className="block font-display text-[17px] font-extrabold tracking-tight max-[359px]:text-[15px] sm:text-[18px]">
             <span className={light ? 'text-white' : 'text-ink'}>GST</span>{' '}
             <span className={light ? 'text-[#ffcf7a]' : 'text-brand'}>Billing</span>
           </span>
-          <span className={clsx('mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] sm:text-[10.5px] sm:tracking-[0.14em]', light ? 'text-white/60' : 'text-muted')}>by Tech Cognixium</span>
+          <span className={clsx('mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] max-[359px]:text-[9px] max-[359px]:tracking-[0.08em] sm:text-[10.5px] sm:tracking-[0.14em]', light ? 'text-white/60' : 'text-muted')}>by Tech Cognixium</span>
         </span>
       )}
     </span>
@@ -107,10 +107,19 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={clsx('skeleton', className)} />
 }
 
-export function PageLoader() {
+export function PageLoader({ slowHint }: { slowHint?: boolean }) {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    if (!slowHint) return
+    const t = setTimeout(() => setSlow(true), 4000)
+    return () => clearTimeout(t)
+  }, [slowHint])
   return (
     <div className="grid min-h-[50vh] place-items-center">
-      <Spinner className="size-8" />
+      <div className="flex flex-col items-center gap-4 text-center">
+        <Spinner className="size-8" />
+        {slow && <p className="max-w-xs px-6 text-sm text-muted">Starting up… the first open after a quiet spell can take up to a minute. You'll stay signed in.</p>}
+      </div>
     </div>
   )
 }
