@@ -78,8 +78,8 @@ class ProfileRuleTests(SimpleTestCase):
         self.assertIn("phone", self.check(phone="987654321099").errors)
 
     def test_gstin_state_code_must_match_the_business_state(self):
-        self.assertNotIn("gstin", self.check(gstin="07AABCS1234F1Z5").errors)
-        self.assertIn("gstin", self.check(gstin="27AABCS1234F1Z5").errors)
+        self.assertNotIn("gstin", self.check(gstin="07AABCS1234F1ZT").errors)
+        self.assertIn("gstin", self.check(gstin="27AABCS1234F1ZR").errors)
 
     def test_website_gets_a_scheme(self):
         self.assertEqual(self.check(website="sharmafurniture.in").validated_data["website"], "https://sharmafurniture.in")

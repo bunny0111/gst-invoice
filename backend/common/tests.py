@@ -4,7 +4,8 @@ import re
 
 from django.test import SimpleTestCase
 
-from .gst import UNIT_CODES, UNIT_DETAILS, UNIT_UQC, normalize_international_phone, normalize_phone
+from .gst import (UNIT_CODES, UNIT_DETAILS, UNIT_UQC, gstin_check_char, gstin_checksum_ok, normalize_international_phone,
+                  normalize_phone)
 from .seo import render_index
 
 SHELL = """<!doctype html><html><head>
@@ -29,6 +30,25 @@ class PhoneTests(SimpleTestCase):
         for value in ("+91 98765 43210", "971501234567", "+12345", "+0123456789", "+97150123456789012"):
             self.assertIsNone(normalize_international_phone(value), value)
         self.assertEqual(normalize_phone("+91 98765 43210"), "9876543210")
+
+
+class GstinChecksumTests(SimpleTestCase):
+    def test_real_gstins_pass(self):
+        for gstin in ("27AAACR5055K1Z7", "24AAACC1206D1ZM"):  # published on public invoices
+            self.assertTrue(gstin_checksum_ok(gstin), gstin)
+
+    def test_single_character_typos_are_caught(self):
+        good = "27AAACR5055K1Z7"
+        for i in range(14):
+            for ch in "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                if ch != good[i]:
+                    self.assertFalse(gstin_checksum_ok(good[:i] + ch + good[i + 1:]), (i, ch))
+
+    def test_lowercase_and_garbage(self):
+        self.assertTrue(gstin_checksum_ok("27aaacr5055k1z7"))
+        self.assertFalse(gstin_checksum_ok("27AAACR5055K1Z"))
+        self.assertFalse(gstin_checksum_ok("27AAACR5055K1Z#"))
+        self.assertEqual(gstin_check_char("07AABCS1234F1Z"), "T")
 
 
 class UnitTests(SimpleTestCase):

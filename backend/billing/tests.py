@@ -121,7 +121,7 @@ class FormattingTests(SimpleTestCase):
 class CustomerRuleTests(SimpleTestCase):
     """Phone mandatory for all; email optional for all; GSTIN mandatory for B2B, optional for B2C."""
 
-    GSTIN = "07ABCDE1234F1Z5"
+    GSTIN = "07ABCDE1234F1Z2"
 
     def check(self, **data):
         from .serializers import CustomerSerializer
@@ -169,9 +169,13 @@ class CustomerRuleTests(SimpleTestCase):
     def test_foreign_customer_keeps_country_code(self):  # export customers
         self.assertEqual(self.check(customer_type="b2c", phone="+1 202 555 0100").validated_data["phone"], "+12025550100")
 
+    def test_gstin_typo_is_caught_by_the_check_digit(self):
+        ser = self.check(customer_type="b2b", phone="9811111111", gstin="07ABCDE1234F1Z5")  # last char should be 2
+        self.assertIn("check digit", str(ser.errors["gstin"][0]))
+
     def test_gstin_must_belong_to_the_customers_state(self):
-        self.assertIn("gstin", self.check(customer_type="b2b", phone="9811111111", gstin="27ABCDE1234F1Z5").errors)  # 27 = MH
-        self.assertIn("gstin", self.check(customer_type="b2b", phone="9811111111", gstin="99ABCDE1234F1Z5").errors)  # no state 99
+        self.assertIn("gstin", self.check(customer_type="b2b", phone="9811111111", gstin="27ABCDE1234F1Z0").errors)  # 27 = MH
+        self.assertIn("gstin", self.check(customer_type="b2b", phone="9811111111", gstin="99ABCDE1234F1ZP").errors)  # no state 99
 
     def test_pincode_cannot_start_with_zero(self):
         self.assertIn("pincode", self.check(customer_type="b2c", phone="9811111111", pincode="012345").errors)

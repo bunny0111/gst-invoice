@@ -101,14 +101,14 @@ r = A.post("/api/invoices/", {"customer": 1, "invoice_date": str(date.today()), 
 check("cannot create invoice with incomplete profile (AC8)", r.status_code == 403 and r.json().get("code") == "profile_incomplete", r.text)
 r = A.patch("/api/profile/", {"gstin": "bad"})
 check("GSTIN validated (15 chars)", r.status_code == 400 and "gstin" in r.json())
-r = A.patch("/api/profile/", {"business_name": nameA, "gstin": "07aabcs1234f1z5", "pan": "aabcs1234f", "state": "DL",
+r = A.patch("/api/profile/", {"business_name": nameA, "gstin": "07aabcs1234f1zt", "pan": "aabcs1234f", "state": "DL",
                               "address_line1": "12 Chandni Chowk", "city": "New Delhi", "pincode": "110006",
                               "phone": "9876543210", "email": "owner@sharma.test", "bank_name": "HDFC Bank",
                               "account_holder_name": "Sharma Traders", "account_number": "50100123456789",
                               "ifsc_code": "hdfc0000123", "invoice_prefix": "tc", "default_payment_terms": 15,
                               "default_terms": "Goods once sold will not be taken back."})
 p = r.json()
-check("profile saved; GSTIN/PAN/IFSC/prefix upper-cased", r.status_code == 200 and p["gstin"] == "07AABCS1234F1Z5"
+check("profile saved; GSTIN/PAN/IFSC/prefix upper-cased", r.status_code == 200 and p["gstin"] == "07AABCS1234F1ZT"
       and p["pan"] == "AABCS1234F" and p["ifsc_code"] == "HDFC0000123" and p["invoice_prefix"] == "TC", r.text)
 check("profile now complete", p["is_complete"] is True)
 r = A.patch("/api/profile/", {"invoice_prefix": "TOOLONGPREFIX"})
@@ -154,13 +154,13 @@ logo_url = r.json()["logo_url"]
 
 print("\n== 4. Customers & products (US-03, US-04)")
 def cust(name, state, gstin="", **kw): return A.post("/api/customers/", {"name": name, "state": state, "gstin": gstin, "phone": "9800000000", **kw})
-c_intra = cust("Ramesh Electronics", "DL", "07abcde1234f1z5", phone="9811111111", email="ramesh@example.com").json()
-c_inter = cust("Suresh Cloth House", "MH", "27abcde1234f1z5").json()
-check("customer GSTIN upper-cased", c_intra["gstin"] == "07ABCDE1234F1Z5")
+c_intra = cust("Ramesh Electronics", "DL", "07abcde1234f1z2", phone="9811111111", email="ramesh@example.com").json()
+c_inter = cust("Suresh Cloth House", "MH", "27abcde1234f1z0").json()
+check("customer GSTIN upper-cased", c_intra["gstin"] == "07ABCDE1234F1Z2")
 check("customer with a GSTIN and no explicit type is B2B", c_intra["customer_type"] == "b2b" and c_inter["customer_type"] == "b2b")
 
 print("\n== 4b. Customer rules (phone mandatory, email optional, GSTIN mandatory for B2B only)")
-G = "07ABCDE1234F1Z5"
+G = "07ABCDE1234F1Z2"
 for ctype, extra in (("b2c", {}), ("b2b", {"gstin": G})):
     r = A.post("/api/customers/", {"name": "No Phone", "state": "DL", "customer_type": ctype, **extra})
     check(f"{ctype.upper()}: phone is mandatory", r.status_code == 400 and "Phone number is required" in r.text, r.text)
@@ -174,7 +174,7 @@ r = A.post("/api/customers/", {"name": "Short GST B2B", "state": "DL", "customer
 check("B2B: a malformed GST number is rejected", r.status_code == 400 and "gstin" in r.json(), r.text)
 r1 = A.post("/api/customers/", {"name": "Walk-in B2C", "state": "DL", "customer_type": "b2c", "phone": "9800000002"})
 check("B2C: GST number is optional (and so is email)", r1.status_code == 201 and r1.json()["customer_type"] == "b2c" and r1.json()["email"] == "", r1.text)
-G2, G3 = "07ABCDE1234F2Z5", "07ABCDE1234F3Z5"  # one GST number belongs to one customer (duplicates are refused)
+G2, G3 = "07ABCDE1234F2Z1", "07ABCDE1234F3Z0"  # one GST number belongs to one customer (duplicates are refused)
 r2 = A.post("/api/customers/", {"name": "B2C With GST", "state": "DL", "customer_type": "b2c", "phone": "9800000003", "gstin": G2.lower()})
 check("B2C may still give a GST number (stored upper-cased)", r2.status_code == 201 and r2.json()["gstin"] == G2, r2.text)
 r3 = A.post("/api/customers/", {"name": "B2B With Email", "state": "DL", "customer_type": "b2b", "phone": "9800000004", "gstin": G3, "email": "ap@b2b.example"})

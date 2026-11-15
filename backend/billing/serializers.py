@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from common.gst import (GST_RATES, LEGACY_GST_RATES, GST_RATE_CUTOVER, PAYMENT_MODES, rate_label, rates_allowed_on,
-                        STATE_CHOICES, STATE_NAMES, UNIT_CODES, gstin_state, is_valid_gstin, is_valid_pincode,
+                        STATE_CHOICES, STATE_NAMES, UNIT_CODES, gstin_checksum_ok, gstin_state, is_valid_gstin, is_valid_pincode,
                         normalize_international_phone, normalize_phone)
 from common.words import amount_in_words
 
@@ -46,6 +46,8 @@ class CustomerSerializer(serializers.ModelSerializer):
         value = value.strip().upper()
         if value and not is_valid_gstin(value):
             raise serializers.ValidationError("GST number must be exactly 15 letters/digits.")
+        if value and not gstin_checksum_ok(value):
+            raise serializers.ValidationError("This GST number has a typo - its last character (a check digit) doesn't match the rest. Copy it from the GST certificate.")
         if value and not gstin_state(value):
             raise serializers.ValidationError("The first two digits of a GST number are its state code (e.g. 07 for Delhi).")
         return value

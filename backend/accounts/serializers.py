@@ -3,7 +3,7 @@ import re
 from rest_framework import serializers
 
 from common import crypto
-from common.gst import (GST_RATES, STATE_CHOICES, STATE_NAMES, gstin_state, is_valid_gstin, is_valid_pan,
+from common.gst import (GST_RATES, STATE_CHOICES, STATE_NAMES, gstin_checksum_ok, gstin_state, is_valid_gstin, is_valid_pan,
                         is_valid_pincode, normalize_phone)
 
 from .models import BusinessProfile
@@ -63,6 +63,8 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
         value = value.strip().upper()
         if value and not is_valid_gstin(value):
             raise serializers.ValidationError("GSTIN must be exactly 15 letters/digits.")
+        if value and not gstin_checksum_ok(value):
+            raise serializers.ValidationError("This GSTIN has a typo - its last character (a check digit) doesn't match the rest. Copy it from the GST certificate.")
         if value and not gstin_state(value):
             raise serializers.ValidationError("The first two digits of a GSTIN are its state code (e.g. 07 for Delhi).")
         return value

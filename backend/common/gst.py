@@ -115,8 +115,30 @@ _ALNUM = re.compile(r"^[A-Za-z0-9]+$")
 
 
 def is_valid_gstin(value: str) -> bool:
-    """PRD US-02 AC2: exactly 15 characters, alphanumeric."""
+    """PRD US-02 AC2: exactly 15 characters, alphanumeric. (The check digit is verified separately by
+    gstin_checksum_ok() so the two mistakes get different messages.)"""
     return len(value) == 15 and bool(_ALNUM.match(value))
+
+
+_GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def gstin_check_char(first14: str) -> str:
+    """The 15th character of a GSTIN: a base-36 check digit over the first 14 (the GSTN's published method -
+    every 2nd character's value is doubled, each product split into its base-36 digits and summed)."""
+    total = 0
+    for i, ch in enumerate(first14):
+        product = _GSTIN_CHARS.index(ch) * (2 if i % 2 else 1)
+        total += product // 36 + product % 36
+    return _GSTIN_CHARS[(36 - total % 36) % 36]
+
+
+def gstin_checksum_ok(value: str) -> bool:
+    """True when the last character matches the check digit - catches almost every single-character typo."""
+    value = value.upper()
+    if len(value) != 15 or any(ch not in _GSTIN_CHARS for ch in value):
+        return False
+    return gstin_check_char(value[:14]) == value[14]
 
 
 def is_valid_pan(value: str) -> bool:

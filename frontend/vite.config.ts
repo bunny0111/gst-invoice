@@ -17,5 +17,19 @@ export default defineConfig({
     allowedHosts: ['.localhost'],
     proxy: { '/api': django, '/media': django, '/share': django },
   },
-  build: { chunkSizeWarningLimit: 900 },
+  build: {
+    rollupOptions: {
+      output: {
+        // Pages load on demand (React.lazy in App.tsx). Libraries go into a few long-lived, cacheable files instead
+        // of dozens of tiny shared chunks (one per icon) - each request costs more than its bytes on a phone.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/[\/](react|react-dom|react-router|react-router-dom|scheduler)[\/]/.test(id)) return 'react'
+          if (id.includes('lucide-react')) return 'icons'
+          if (id.includes('framer-motion') || id.includes('motion-')) return 'motion'
+          return 'vendor'
+        },
+      },
+    },
+  },
 })

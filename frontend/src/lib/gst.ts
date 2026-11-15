@@ -71,6 +71,20 @@ export function customerPhoneInput(v: string): string {
 /** GSTIN fields: uppercase letters/digits only, at most 15. */
 export const gstinInput = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15)
 
+const GSTIN_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+/** Mirror of backend common/gst.py: the 15th character is a base-36 check digit over the first 14. */
+export function gstinChecksumOk(gstin: string): boolean {
+  const g = gstin.toUpperCase()
+  if (g.length !== 15 || [...g].some((c) => !GSTIN_CHARS.includes(c))) return false
+  let total = 0
+  for (let i = 0; i < 14; i++) {
+    const product = GSTIN_CHARS.indexOf(g[i]) * (i % 2 ? 2 : 1)
+    total += Math.floor(product / 36) + (product % 36)
+  }
+  return GSTIN_CHARS[(36 - (total % 36)) % 36] === g[14]
+}
+export const GSTIN_TYPO = "Typo? The last character (a check digit) doesn't match — copy the GSTIN from the GST certificate."
+
 /** The state a GSTIN belongs to - its first two digits are the GST state code (07 = Delhi). */
 export function stateFromGstin(gstin: string, states: { code: string; gst_code: string }[] | undefined): string | undefined {
   if (!states || gstin.length < 2) return undefined

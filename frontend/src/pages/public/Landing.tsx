@@ -53,7 +53,7 @@ function HeroInvoice() {
               <span className="grid size-11 place-items-center rounded-xl bg-gradient-to-br from-[#ffb84d] to-[#ff7a59] font-display text-lg font-extrabold text-white">R</span>
               <div>
                 <p className="font-display text-[15px] font-bold text-ink">Ramesh Electronics</p>
-                <p className="text-xs text-muted">GSTIN 07AABCR1234F1Z5</p>
+                <p className="text-xs text-muted">GSTIN 07AABCR1234F1ZU</p>
               </div>
             </div>
             <div className="text-right">

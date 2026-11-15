@@ -117,12 +117,20 @@ deliberately **never indexed** — only the public marketing site (landing + reg
 - **Business type** is the legal form (Proprietorship, LLP, Pvt Ltd...); **nature of business** is what it does (Retailer, Wholesaler,
   Manufacturer, Service provider...) - the two fields a GST registration also has.
 - **Checks:** Indian phone numbers are stored as exactly 10 digits (+91 / 0 prefixes are stripped); a *customer* may instead have a foreign
-  number written with its country code (`+971...`, export customers). A GSTIN's first two digits must be a real state code that matches the
+  number written with its country code (`+971...`, export customers). A GSTIN's last character must be its check digit (catches almost any typo; checked
+  live in the forms and again on the server), its first two digits a real state code that matches the
   chosen state (typing a GSTIN fills in the state and PAN); PIN codes can't start with 0; an invoice can be dated at most 30 days ahead;
   payments can't be dated in the future or before the invoice; an invoice with payments must have them removed before it can be cancelled.
   The same customer can't be added twice (same GST number, or same name + phone - a removed one points you to Restore).
 - **Units:** 62 units in groups (count, packaging, weight, volume, length, area, time & services), each mapped to its GST UQC code
   (`common/gst.py::UNIT_DETAILS`, e.g. cm -> CMS, kg -> KGS; units without a UQC map to OTH) for GSTR-1 / e-invoice exports.
+
+## Loading speed
+
+Every page is its own JavaScript chunk (`React.lazy` in `App.tsx`), and libraries sit in a few long-lived files
+(`react`, `vendor`, `motion`, `icons` - `vite.config.ts`). The login page needs only what it shows; on the login page the
+dashboard is fetched in the background, and once signed in the rest of the workspace (skipped on "save data" connections).
+After a deploy, returning users re-download only the page chunks that changed.
 
 ## Install as an app (PWA)
 

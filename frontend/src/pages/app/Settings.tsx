@@ -8,7 +8,7 @@ import { PageHeader, PageLoader } from '@/components/ui/Bits'
 import { Button } from '@/components/ui/Button'
 import { Field, Select, Textarea, TextInput } from '@/components/ui/Form'
 import { ApiError, api, del, patch, post } from '@/lib/api'
-import { gstinInput, panFromGstin, phoneInput, stateFromGstin } from '@/lib/gst'
+import { GSTIN_TYPO, gstinChecksumOk, gstinInput, panFromGstin, phoneInput, stateFromGstin } from '@/lib/gst'
 import { useMeta, useProfile } from '@/lib/hooks'
 import type { Profile } from '@/lib/types'
 
@@ -113,7 +113,7 @@ export default function Settings() {
       if (gstin.length === 15 && !p.pan) next.pan = panFromGstin(gstin)
       return next
     })
-    setErrors((e) => ({ ...e, gstin: '', state: '' }))
+    setErrors((e) => ({ ...e, gstin: gstin.length === 15 && !gstinChecksumOk(gstin) ? GSTIN_TYPO : '', state: '' }))
   }
   const missing = profile.missing_fields
   const total = 6
@@ -193,7 +193,7 @@ export default function Settings() {
           {tab === 'business' && (
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Business name" required error={errors.business_name} className="sm:col-span-2"><TextInput value={f.business_name} onChange={(e) => set('business_name', e.target.value)} invalid={!!errors.business_name} /></Field>
-              <Field label="GSTIN" error={errors.gstin} hint={f.gstin ? '15 characters. Fills in your state and PAN.' : 'Leave empty if you are not GST-registered — your invoices will then be Bills of Supply with no GST.'}><TextInput value={f.gstin} onChange={(e) => setGstin(e.target.value)} maxLength={15} className="num uppercase" invalid={!!errors.gstin} placeholder="07AABCS1234F1Z5" autoCapitalize="characters" /></Field>
+              <Field label="GSTIN" error={errors.gstin} hint={f.gstin ? '15 characters. Fills in your state and PAN.' : 'Leave empty if you are not GST-registered — your invoices will then be Bills of Supply with no GST.'}><TextInput value={f.gstin} onChange={(e) => setGstin(e.target.value)} maxLength={15} className="num uppercase" invalid={!!errors.gstin} placeholder="07AABCS1234F1ZT" autoCapitalize="characters" /></Field>
               <Field label="PAN" error={errors.pan} hint="10 characters"><TextInput value={f.pan} onChange={(e) => set('pan', e.target.value.toUpperCase())} maxLength={10} className="num uppercase" invalid={!!errors.pan} placeholder="AABCS1234F" /></Field>
               <Field label="State" required error={errors.state} hint="Drives CGST + SGST vs IGST on every invoice" className="sm:col-span-2"><Select value={f.state} onChange={(e) => set('state', e.target.value)} invalid={!!errors.state}><option value="">Select your state…</option>{meta?.states.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}</Select></Field>
               <Field label="Address line 1" required error={errors.address_line1} className="sm:col-span-2"><TextInput value={f.address_line1} onChange={(e) => set('address_line1', e.target.value)} invalid={!!errors.address_line1} placeholder="Shop / building, street" /></Field>

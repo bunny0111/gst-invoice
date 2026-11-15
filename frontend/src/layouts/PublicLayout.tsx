@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Logo, PoweredBy, ThemeToggle } from '@/components/ui/Bits'
+import { Logo, PageLoader, PoweredBy, ThemeToggle } from '@/components/ui/Bits'
 import { LinkButton } from '@/components/ui/Button'
 
 const LINKS = [
@@ -71,7 +71,7 @@ export default function PublicLayout() {
         </AnimatePresence>
       </header>
 
-      <Outlet />
+      <Suspense fallback={<PageLoader />}><Outlet /></Suspense>
 
       <footer className="mt-24 border-t border-line bg-surface">
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 sm:px-8 md:grid-cols-[1.4fr_1fr_1fr_1fr]">

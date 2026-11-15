@@ -1,26 +1,58 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, type ReactElement } from 'react'
+import { lazy, Suspense, useEffect, type ReactElement } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Logo } from './components/ui/Bits'
 import { Button } from './components/ui/Button'
 import { PageLoader } from './components/ui/Bits'
-import AppShell from './layouts/AppShell'
-import PublicLayout from './layouts/PublicLayout'
-import ForgotPassword from './pages/auth/ForgotPassword'
-import Login from './pages/auth/Login'
-import Customers from './pages/app/Customers'
-import Dashboard from './pages/app/Dashboard'
-import InvoiceEditor from './pages/app/InvoiceEditor'
-import InvoiceView from './pages/app/InvoiceView'
-import Invoices from './pages/app/Invoices'
-import Payments from './pages/app/Payments'
-import Products from './pages/app/Products'
-import Settings from './pages/app/Settings'
-import Subscription from './pages/app/Subscription'
-import FindBusiness from './pages/public/FindBusiness'
-import Landing from './pages/public/Landing'
-import Register from './pages/public/Register'
+// Every page is its own chunk: a phone opening the login page downloads the login page, not the whole app.
+const pages = {
+  AppShell: () => import('./layouts/AppShell'),
+  PublicLayout: () => import('./layouts/PublicLayout'),
+  ForgotPassword: () => import('./pages/auth/ForgotPassword'),
+  Login: () => import('./pages/auth/Login'),
+  Customers: () => import('./pages/app/Customers'),
+  Dashboard: () => import('./pages/app/Dashboard'),
+  InvoiceEditor: () => import('./pages/app/InvoiceEditor'),
+  InvoiceView: () => import('./pages/app/InvoiceView'),
+  Invoices: () => import('./pages/app/Invoices'),
+  Payments: () => import('./pages/app/Payments'),
+  Products: () => import('./pages/app/Products'),
+  Settings: () => import('./pages/app/Settings'),
+  Subscription: () => import('./pages/app/Subscription'),
+  FindBusiness: () => import('./pages/public/FindBusiness'),
+  Landing: () => import('./pages/public/Landing'),
+  Register: () => import('./pages/public/Register'),
+}
+const AppShell = lazy(pages.AppShell)
+const PublicLayout = lazy(pages.PublicLayout)
+const ForgotPassword = lazy(pages.ForgotPassword)
+const Login = lazy(pages.Login)
+const Customers = lazy(pages.Customers)
+const Dashboard = lazy(pages.Dashboard)
+const InvoiceEditor = lazy(pages.InvoiceEditor)
+const InvoiceView = lazy(pages.InvoiceView)
+const Invoices = lazy(pages.Invoices)
+const Payments = lazy(pages.Payments)
+const Products = lazy(pages.Products)
+const Settings = lazy(pages.Settings)
+const Subscription = lazy(pages.Subscription)
+const FindBusiness = lazy(pages.FindBusiness)
+const Landing = lazy(pages.Landing)
+const Register = lazy(pages.Register)
+
+/** A moment after the screen is up, fetch the pages the person will open next in the background so moving between
+ *  them stays instant: on the login page just the dashboard, once signed in the whole workspace.
+ *  Skipped on metered "save data" connections. */
+function usePrefetchPages(which: (keyof typeof pages)[] | null) {
+  const key = which?.join(',')
+  useEffect(() => {
+    if (!which || (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return
+    const t = window.setTimeout(() => which.forEach((name) => pages[name]().catch(() => { /* offline: loads on demand */ })), 2500)
+    return () => window.clearTimeout(t)
+  }, [key])  // `which` is a fresh array each render; its contents are what matter
+}
+const ALL_TENANT_PAGES = (Object.keys(pages) as (keyof typeof pages)[]).filter((k) => !['PublicLayout', 'FindBusiness', 'Landing', 'Register'].includes(k))
 import { ApiError, ensureCsrf } from './lib/api'
 import { useMe, useTenantInfo } from './lib/hooks'
 import { useNoIndex } from './lib/seo'
@@ -45,9 +77,10 @@ export default function App() {
   } else {
     body = <TenantRoutes />
   }
+  const loader = <div className="grid min-h-screen place-items-center"><PageLoader /></div>
   return (
     <>
-      {body}
+      <Suspense fallback={loader}>{body}</Suspense>
       <Toaster theme={theme} position="top-right" richColors closeButton toastOptions={{ style: { fontFamily: 'var(--font-sans)', borderRadius: '14px' } }} />
     </>
   )
@@ -79,6 +112,8 @@ function TenantRoutes() {
     window.addEventListener('gst:unauthorized', out)
     return () => window.removeEventListener('gst:unauthorized', out)
   }, [qc])
+
+  usePrefetchPages(me.isLoading || me.isError ? null : me.data ? ALL_TENANT_PAGES : ['AppShell', 'Dashboard'])
 
   if (me.isLoading) return <div className="grid min-h-screen place-items-center"><div className="flex flex-col items-center gap-5"><Logo /><PageLoader slowHint /></div></div>
   if (me.isError) return <ServerUnreachable onRetry={() => me.refetch()} />  // NOT a logout - the session is fine

@@ -4,10 +4,10 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowRight, Crown, FileText, LayoutDashboard, LogOut, Menu, Package, Plus, Wallet, Settings as SettingsIcon, TriangleAlert, Users, X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Avatar, Logo, PoweredBy, ThemeToggle, UsageMeter } from '@/components/ui/Bits'
+import { Avatar, Logo, PageLoader, PoweredBy, ThemeToggle, UsageMeter } from '@/components/ui/Bits'
 import { InstallApp } from '@/components/ui/InstallApp'
 import { LinkButton } from '@/components/ui/Button'
 import { post } from '@/lib/api'
@@ -172,7 +172,7 @@ export default function AppShell() {
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-8">
         <motion.div key={location.pathname} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: 'easeOut' }}>
-          <Outlet />
+          <Suspense fallback={<PageLoader />}><Outlet /></Suspense>
         </motion.div>
         <p className="mt-12 text-center lg:hidden"><PoweredBy /></p>
       </main>
