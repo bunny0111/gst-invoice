@@ -70,11 +70,12 @@
   .sign td + td { border-left: 1px solid #b9b3ee; text-align: right; width: 42%; }
   .sign .signature { display: block; margin: 4px 0 2px auto; max-height: 40px; max-width: 150px; }
   .sign .signer { color: #1e1b3a; font-size: 8.3pt; }
-  .upi { width: 100%; border-collapse: collapse; }
-  .upi td { border: 0 !important; padding: 0; vertical-align: top; font-size: 8.3pt; }
-  .upi td.qr { width: 92px; padding-right: 10px; }
-  .upi td.qr img { width: 86px; height: 86px; object-fit: contain; }
-  .upi .instr { margin-top: 3px; color: #3d3a5c; }
+  .payrow { width: 100%; border-collapse: collapse; }
+  .payrow td { border: 0 !important; padding: 0; vertical-align: top; }
+  .payrow td.qr { width: 92px; padding-left: 10px !important; text-align: center; }
+  .payrow td.qr img { width: 78px; height: 78px; object-fit: contain; display: block; margin: 0 auto; }
+  .payrow .upi-id { font-size: 6.6pt; color: #3d3a5c; word-break: break-all; margin-top: 2px; }
+  .pad .instr { margin-top: 4px; font-size: 7.8pt; color: #3d3a5c; }
   .sign .line { display: inline-block; min-width: 170px; border-top: 1px solid #1e1b3a; padding-top: 3px; font-size: 7.8pt; color: #6b6890; text-align: center; }
   .decl { font-size: 7.3pt; color: #6b6890; }
 
@@ -156,28 +157,25 @@
   <!-- bank + tax summary | totals -->
   <table class="low"><tr>
     <td style="width:56%">
-      {% if seller.bank_name or seller.account_number %}
-      <div class="pad">
-        <div class="label">Bank details</div>
-        <table class="kv">
-          {% if seller.account_holder_name %}<tr><td>A/c holder</td><td>:</td><td>{{ seller.account_holder_name }}</td></tr>{% endif %}
-          {% if seller.bank_name %}<tr><td>Bank</td><td>:</td><td>{{ seller.bank_name }}{% if seller.bank_branch %}, {{ seller.bank_branch }}{% endif %}</td></tr>{% endif %}
-          {% if seller.account_number %}<tr><td>A/c number</td><td>:</td><td>{{ seller.account_number }}{% if account_type %} ({{ account_type }}){% endif %}</td></tr>{% endif %}
-          {% if seller.ifsc_code %}<tr><td>IFSC</td><td>:</td><td>{{ seller.ifsc_code }}</td></tr>{% endif %}
-        </table>
-      </div>
-      {% endif %}
-      {% if payment_qr or seller.upi_id or seller.payment_instructions %}
-      <div class="pad">
-        <div class="label">Pay {% if payment_qr or seller.upi_id %}by UPI{% else %}instructions{% endif %}</div>
-        <table class="upi"><tr>
-          {% if payment_qr %}<td class="qr"><img src="{{ payment_qr }}" alt="UPI QR code"></td>{% endif %}
-          <td>
-            {% if seller.upi_id %}<div>UPI ID: <b>{{ seller.upi_id }}</b></div>{% endif %}
-            {% if payment_qr %}<div class="muted">Scan with any UPI app (GPay, PhonePe, Paytm, BHIM).</div>{% endif %}
-            {% if seller.payment_instructions %}<div class="instr">{{ seller.payment_instructions|linebreaksbr }}</div>{% endif %}
-          </td>
-        </tr></table>
+      {% if seller.bank_name or seller.account_number or payment_qr or seller.upi_id or seller.payment_instructions %}
+      <!-- bank details and the UPI QR side by side, so a typical invoice still fits one page -->
+      <div class="pad"><table class="payrow"><tr>
+        {% if seller.bank_name or seller.account_number %}<td class="bank">
+          <div class="label">Bank details</div>
+          <table class="kv">
+            {% if seller.account_holder_name %}<tr><td>A/c holder</td><td>:</td><td>{{ seller.account_holder_name }}</td></tr>{% endif %}
+            {% if seller.bank_name %}<tr><td>Bank</td><td>:</td><td>{{ seller.bank_name }}{% if seller.bank_branch %}, {{ seller.bank_branch }}{% endif %}</td></tr>{% endif %}
+            {% if seller.account_number %}<tr><td>A/c no.</td><td>:</td><td>{{ seller.account_number }}{% if account_type %} ({{ account_type }}){% endif %}</td></tr>{% endif %}
+            {% if seller.ifsc_code %}<tr><td>IFSC</td><td>:</td><td>{{ seller.ifsc_code }}</td></tr>{% endif %}
+          </table>
+        </td>{% endif %}
+        {% if payment_qr or seller.upi_id %}<td class="qr">
+          <div class="label">Pay by UPI</div>
+          {% if payment_qr %}<img src="{{ payment_qr }}" alt="UPI QR code">{% endif %}
+          {% if seller.upi_id %}<div class="upi-id">{{ seller.upi_id }}</div>{% endif %}
+        </td>{% endif %}
+      </tr></table>
+      {% if seller.payment_instructions %}<div class="instr">{{ seller.payment_instructions|linebreaksbr }}</div>{% endif %}
       </div>
       {% endif %}
       {% if registered %}<div class="pad">
