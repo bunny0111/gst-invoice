@@ -199,7 +199,7 @@ def spa_index(request, *args, **kwargs):
     if public:
         snapshot = dist / request.path.strip("/") / "index.html"  # "" -> dist/index.html (root)
         html = snapshot.read_text(encoding="utf-8") if snapshot.is_file() else ""
-        if html and '<div id="root"></div>' not in html:  # a real prerendered snapshot, not the empty shell
+        if html and "<!--seo-->" not in html:  # a real prerendered snapshot, not the empty shell
             return HttpResponse(html, content_type="text/html; charset=utf-8")
 
     index = dist / "index.html"

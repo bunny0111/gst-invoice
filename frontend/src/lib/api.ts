@@ -59,7 +59,8 @@ export async function api<T = any>(path: string, opts: Opts = {}): Promise<T> {
   if (res.status === 204) return undefined as T
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    if (res.status === 401 || (res.status === 403 && data?.detail?.includes?.('Authentication credentials'))) {
+    // ask the app to re-check the session - but not from the session check itself (that would loop)
+    if (path !== '/api/auth/me/' && (res.status === 401 || (res.status === 403 && data?.detail?.includes?.('Authentication credentials')))) {
       window.dispatchEvent(new Event('gst:unauthorized'))
     }
     throw new ApiError(res.status, data)

@@ -126,9 +126,14 @@ if os.environ.get("DATABASE_URL"):  # Railway style connection string
     import urllib.parse as _up
 
     _u = _up.urlparse(os.environ["DATABASE_URL"])
+    # django-tenants points each connection at one business's schema (SET search_path) for the whole request.
+    # Neon's pooled endpoint ("-pooler" in the host, PgBouncer in transaction mode) hands consecutive queries to
+    # different server connections, so under concurrent requests a query can run in another schema: the session
+    # isn't found (the user looks logged out) or a table is missing (500). Always use the direct endpoint.
+    _host = (_u.hostname or "").replace("-pooler.", ".")
     DATABASES["default"].update(
         NAME=_u.path.lstrip("/"), USER=_u.username, PASSWORD=_up.unquote(_u.password or ""),
-        HOST=_u.hostname, PORT=str(_u.port or 5432),
+        HOST=_host, PORT=str(_u.port or 5432),
     )
     _sslmode = _up.parse_qs(_u.query).get("sslmode", [""])[0]  # Neon / Render need sslmode=require
     if _sslmode:

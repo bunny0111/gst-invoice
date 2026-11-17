@@ -35,15 +35,27 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
     <script>
-      // Apply the saved theme before first paint (no flash).
+      // Apply the saved theme before first paint (no flash). "js" shows the loader below and hides the
+      // crawler text (common/seo.py) for anyone whose browser is about to start the app.
+      document.documentElement.classList.add('js');
       try {
         var t = localStorage.getItem('gst-theme');
         if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
       } catch (e) {}
     </script>
+    <style>
+      /* Shown until React mounts and replaces #root - a plain brand loader, never unstyled text. */
+      #boot { display: none; position: fixed; inset: 0; place-items: center; background: #f6f5fc; }
+      .js #boot { display: grid; }
+      .dark #boot { background: #100e22; }
+      #boot div { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+      #boot i { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #ddd8ff; border-top-color: #4f3fe0; animation: boot-spin .8s linear infinite; }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      .js #seo-static { display: none; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="boot" role="status" aria-label="Loading GST Billing"><div><img src="/favicon.svg" width="56" height="56" alt="" /><i></i></div></div><!--seo--></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

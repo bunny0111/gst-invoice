@@ -13,6 +13,16 @@ import { inr, trimZero } from '@/lib/format'
 import { useDebounce, useMeta, useProfile, useRefreshUsage, useSubscription } from '@/lib/hooks'
 import type { Paginated, Product } from '@/lib/types'
 
+/** What each GST 2.0 slab (from 22 Sep 2025) is for - shown under the rate buttons. */
+const RATE_HINT: Record<string, string> = {
+  '0': '0% - exempt or nil-rated: fresh food, milk, books, health and education services.',
+  '0.25': '0.25% - rough and cut precious stones (diamonds).',
+  '3': '3% - gold, silver, platinum and jewellery.',
+  '5': '5% - essentials: packaged food, medicines, footwear, many items that were 12%.',
+  '18': '18% - the standard rate: most goods and services, including most items that were 12% or 28%.',
+  '40': '40% - luxury and "sin" goods: tobacco, pan masala, aerated drinks, luxury cars.',
+}
+
 const empty = { name: '', description: '', item_type: 'goods', hsn_sac_code: '', unit: 'pcs', selling_price: '', gst_rate: '18' }
 
 export default function Products() {
@@ -146,7 +156,8 @@ function ProductModal({ product, onClose, onSaved }: { product: Product | 'new' 
   useEffect(() => {
     if (!product) return
     setErrors({})
-    setF(product === 'new' ? { ...empty, gst_rate: profile?.gstin ? trimZero(profile.default_gst_rate ?? '18') : '0' } : { name: product.name, description: product.description, item_type: product.item_type, hsn_sac_code: product.hsn_sac_code, unit: product.unit, selling_price: product.selling_price, gst_rate: trimZero(product.gst_rate) })
+    // a product keeps its real GST rate even while the business has no GSTIN - it applies once they register
+    setF(product === 'new' ? { ...empty, gst_rate: trimZero(profile?.default_gst_rate ?? '18') } : { name: product.name, description: product.description, item_type: product.item_type, hsn_sac_code: product.hsn_sac_code, unit: product.unit, selling_price: product.selling_price, gst_rate: trimZero(product.gst_rate) })
   }, [product])
 
   const set = (k: keyof typeof empty) => (e: { target: { value: string } }) => { setF((p) => ({ ...p, [k]: e.target.value })); setErrors((p) => ({ ...p, [k]: '' })) }
@@ -186,7 +197,8 @@ function ProductModal({ product, onClose, onSaved }: { product: Product | 'new' 
         <Field label="HSN / SAC code" error={errors.hsn_sac_code} hint="HSN for goods, SAC for services (2–8 digits)"><TextInput value={f.hsn_sac_code} onChange={set('hsn_sac_code')} inputMode="numeric" maxLength={8} className="num" invalid={!!errors.hsn_sac_code} /></Field>
         <Field label="Unit" error={errors.unit}><Select value={f.unit} onChange={set('unit')}><UnitOptions units={meta?.units} /></Select></Field>
         <Field label="Selling price" required error={errors.selling_price} hint="Excluding GST"><TextInput value={f.selling_price} onChange={(e) => set('selling_price')({ target: { value: e.target.value.replace(/[^\d.]/g, '') } })} inputMode="decimal" left="₹" className="num" invalid={!!errors.selling_price} /></Field>
-        <Field label="GST rate" required error={errors.gst_rate}>
+        <Field label="GST rate" required error={errors.gst_rate}
+          hint={<>{RATE_HINT[f.gst_rate] ?? 'An older slab, kept as it is on this item.'}{profile && !profile.gstin && ' Not charged while your business has no GSTIN (Bill of Supply).'}</>}>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6" role="radiogroup" aria-label="GST rate">
             {[...(meta?.gst_rates ?? [0, 0.25, 3, 5, 18, 40]), ...(meta?.gst_rates?.includes(Number(f.gst_rate)) || !f.gst_rate ? [] : [Number(f.gst_rate)])].map((r) => (
               <button key={r} type="button" role="radio" aria-checked={f.gst_rate === String(r)} onClick={() => setF((p) => ({ ...p, gst_rate: String(r) }))}

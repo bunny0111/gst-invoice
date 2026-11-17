@@ -12,17 +12,26 @@ export const wakeDelay = (attempt: number) => Math.min(1500 * 2 ** attempt, 10_0
 export const useTenantInfo = () =>
   useQuery({ queryKey: ['tenant'], queryFn: () => get<TenantInfo>('/api/tenant/'), staleTime: Infinity, retry: wakeRetry, retryDelay: wakeDelay })
 
-/** The logged-in user, or null when signed out (401/403 is not an error here). */
+const isSignedOut = (e: unknown) => e instanceof ApiError && (e.status === 401 || e.status === 403)
+
+/** The logged-in user, or null when signed out (401/403 is not an error here). For someone who WAS signed in, a
+ *  "not signed in" answer is asked again after a moment before they're sent to the login page: one stray reply must
+ *  never log people out. A fresh visitor gets the login page at once. */
 export function useMe(enabled = true) {
+  const qc = useQueryClient()
   return useQuery({
     queryKey: ['me'],
     enabled,
     queryFn: async () => {
-      try {
-        return await get<Me>('/api/auth/me/')
-      } catch (e) {
-        if (e instanceof ApiError && (e.status === 401 || e.status === 403)) return null
-        throw e
+      const wasSignedIn = !!qc.getQueryData<Me | null>(['me'])
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await get<Me>('/api/auth/me/')
+        } catch (e) {
+          if (!isSignedOut(e)) throw e
+          if (!wasSignedIn || attempt >= 1) return null
+          await new Promise((r) => setTimeout(r, 800))
+        }
       }
     },
     staleTime: 60_000,

@@ -18,7 +18,7 @@ SHELL = """<!doctype html><html><head>
     <meta name="twitter:title" content="old" />
     <meta name="twitter:description" content="old" />
     <meta name="twitter:image" content="/og-image.png" />
-  </head><body><div id="root"></div><script type="module" src="/assets/index-x.js"></script></body></html>"""
+  </head><body><div id="root"><div id="boot"></div><!--seo--></div><script type="module" src="/assets/index-x.js"></script></body></html>"""
 
 
 class PhoneTests(SimpleTestCase):
@@ -88,5 +88,5 @@ class SeoTests(SimpleTestCase):
     def test_workspace_pages_only_get_absolute_urls(self):
         html = render_index(SHELL, "https://sharma.app.example.com", "/invoices", public=False)
         self.assertIn('<meta property="og:url" content="https://sharma.app.example.com/" />', html)
-        self.assertIn('<div id="root"></div>', html)
+        self.assertIn('<div id="root"><div id="boot"></div><!--seo--></div>', html)
         self.assertNotIn("canonical", html)

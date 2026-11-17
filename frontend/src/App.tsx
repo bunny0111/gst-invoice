@@ -108,7 +108,8 @@ function TenantRoutes() {
   useNoIndex(me.data?.business_name)
 
   useEffect(() => {
-    const out = () => qc.setQueryData(['me'], null)
+    // Some request said "not signed in": re-check the session (useMe asks twice) instead of logging out on the spot.
+    const out = () => { if (!qc.isFetching({ queryKey: ['me'] })) qc.invalidateQueries({ queryKey: ['me'] }) }
     window.addEventListener('gst:unauthorized', out)
     return () => window.removeEventListener('gst:unauthorized', out)
   }, [qc])

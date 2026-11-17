@@ -36,6 +36,7 @@ export default function InvoiceEditor() {
   const me = useMe().data
   const { data: profile } = useProfile()
   const meta = useMeta().data
+  const stateName = (code?: string) => meta?.states.find((x) => x.code === code)?.name ?? code ?? ''
   const sub = useSubscription().data
 
   const existing = useQuery({ queryKey: ['invoice', id], enabled: editing, queryFn: () => get<InvoiceDetail>(`/api/invoices/${id}/`) })
@@ -225,10 +226,15 @@ export default function InvoiceEditor() {
                 <BadgeCheck className={clsx('size-5', supply === 'export' ? 'text-info-ink' : supply === 'intrastate' ? 'text-good-ink' : 'text-warn-ink')} />
                 <div className="min-w-0 flex-1 basis-56 text-sm">
                   <p className="font-bold text-ink">{supply === 'export' ? 'Export / SEZ — zero-rated (under LUT)' : supply === 'intrastate' ? 'Intra-state supply — CGST + SGST' : 'Inter-state supply — IGST'}</p>
-                  <p className="text-xs text-ink-2">{!customer ? 'Choose a customer and the right tax is applied automatically.' : supply === 'export' ? 'No GST is charged on this invoice.' : `Your state ${profile.state} ${detected === 'intrastate' ? '=' : '≠'} customer state ${customer.state}. Detected automatically.`}</p>
+                  <p className="text-xs leading-relaxed text-ink-2">{!customer ? 'Choose a customer and the right tax type is picked for you from the two states.' : supply === 'export'
+                    ? 'Goods or services leaving India, or supplied to a Special Economic Zone under a Letter of Undertaking (LUT): no GST is charged.'
+                    : supply === 'intrastate'
+                      ? `You and ${customer.name} are both in ${stateName(profile.state)}, so each line's GST is split in half: CGST (to the Centre) + SGST (to the State). Same total as IGST.`
+                      : `You're in ${stateName(profile.state)} and ${customer.name} is in ${stateName(customer.state)}, so the full GST is charged as one tax: IGST.`}</p>
                 </div>
-                <label className="flex w-full cursor-pointer items-center gap-2.5 text-[13px] font-semibold text-ink-2 sm:w-auto">
-                  <input type="checkbox" checked={isExport} onChange={(e) => setIsExport(e.target.checked)} className="size-4 accent-[var(--brand)]" /><Globe2 className="size-4" />Export / SEZ (zero-rated)
+                <label className="flex w-full cursor-pointer items-start gap-2.5 text-[13px] font-semibold text-ink-2 sm:w-auto sm:max-w-56" title="Tick only for an export outside India or a supply to an SEZ under LUT">
+                  <input type="checkbox" checked={isExport} onChange={(e) => setIsExport(e.target.checked)} className="mt-0.5 size-4 shrink-0 accent-[var(--brand)]" /><Globe2 className="mt-0.5 size-4 shrink-0" />
+                  <span>Export / SEZ (zero-rated)<span className="block text-[11px] font-normal text-muted">Only for exports or SEZ supplies under LUT</span></span>
                 </label>
               </motion.div>
             </AnimatePresence>}

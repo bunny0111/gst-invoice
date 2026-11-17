@@ -135,4 +135,4 @@ def render_index(html: str, origin: str, path: str, public: bool) -> str:
     if path == "/":
         head_extra += f"    {_json_ld(origin)}\n"
     html = html.replace("</head>", head_extra + "  </head>", 1)
-    return html.replace('<div id="root"></div>', f'<div id="root">{_body(path)}</div>', 1)
+    return html.replace("<!--seo-->", _body(path), 1)  # the marker sits inside #root, after the loader
