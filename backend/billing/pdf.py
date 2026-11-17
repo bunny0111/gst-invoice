@@ -98,6 +98,8 @@ def render_invoice_pdf(invoice, profile) -> bytes:
         "logo": _logo_data_uri(seller),
         "signature": _image_data_uri(seller.get("signature_id")),
         "payment_qr": _payment_qr(seller, invoice),
+        # wrap a long UPI ID after the "@" (zero-width space), not in the middle of the bank's handle
+        "upi_id_display": (seller.get("upi_id") or "").replace("@", "@\u200b", 1),
         "account_type": dict(ACCOUNT_TYPES).get(seller.get("account_type"), ""),
         "registered": bool(seller.get("gstin")),
         "amount_in_words": amount_in_words(invoice.grand_total),
